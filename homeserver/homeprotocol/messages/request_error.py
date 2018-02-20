@@ -3,8 +3,8 @@ from .message import Message
 
 class RequestErrorMessage(Message):
     MESSAGE_ID = 2
-    MESSAGE_SIZE = 20
-    STRUCT_FORMAT = "<I16s"
+    MESSAGE_SIZE = 18
+    STRUCT_FORMAT = "<H16s"
 
     def __init__(self, code=None, message=None):
         self.code = code

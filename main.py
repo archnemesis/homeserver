@@ -27,7 +27,7 @@ class HomeServerTCPHandler(socketserver.BaseRequestHandler):
 
                 for message in self.parser.process_bytes(data):
                     if type(message) is messages.RequestConfigurationMessage:
-                        pass
+                        print("Got a request for config!")
 
         print("End connection")
 

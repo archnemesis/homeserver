@@ -108,6 +108,11 @@ MESSAGE_INIT_TEMPLATE = """
 import struct
 
 
+MESSAGE_HEADER_SIZE = 3
+MESSAGE_MAX_DATA_SIZE = {max_size_int}
+MESSAGE_MAX_TOTAL_SIZE = MESSAGE_HEADER_SIZE + MESSAGE_MAX_DATA_SIZE
+
+
 def pack_message(message):
     header = MessageHeader()
     header.message_id = message.MESSAGE_ID
@@ -280,7 +285,9 @@ def process_format_python(message_defs, output_directory):
 
             for (name, value) in enum['values']:
                 enum_output.append("    %s = %d" % (name, value))
-        fp.write(MESSAGE_INIT_TEMPLATE.format(enums="\n".join(enum_output)))
+        fp.write(MESSAGE_INIT_TEMPLATE.format(
+            enums="\n".join(enum_output),
+            max_size_int=math.ceil(get_max_message_size(message_defs['messages']) / 4.0)))
 
     for message in message_defs['messages']:
         process_message("python", message, output_directory)

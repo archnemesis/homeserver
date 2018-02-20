@@ -2,6 +2,11 @@
 import struct
 
 
+MESSAGE_HEADER_SIZE = 3
+MESSAGE_MAX_DATA_SIZE = 4
+MESSAGE_MAX_TOTAL_SIZE = MESSAGE_HEADER_SIZE + MESSAGE_MAX_DATA_SIZE
+
+
 def pack_message(message):
     header = MessageHeader()
     header.message_id = message.MESSAGE_ID
@@ -13,11 +18,21 @@ def pack_message(message):
     return data
 
 
-class ErrorCodes(object):
+class ErrorCode(object):
     RequestError = 0
     RequestDeniedPermissions = 1
     RequestDeniedUnRegistered = 2
     RequestFailed = 3
+class DeviceType(object):
+    Computer = 0
+    WallPanelSmall = 1
+    WallPanelMedium = 2
+    WallPanelLarge = 3
+    Keypad = 4
+class DeviceUITheme(object):
+    Default = 0
+    Light = 1
+    Dark = 2
 
 
 class Message(object):

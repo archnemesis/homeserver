@@ -1,8 +1,8 @@
 import struct
 from .message import Message
 
-class IntercomIncomingChannelAcceptMessage(Message):
-    MESSAGE_ID = 3
+class IntercomChannelAcceptMessage(Message):
+    MESSAGE_ID = 4
     MESSAGE_SIZE = 12
     STRUCT_FORMAT = "<6sIH"
 

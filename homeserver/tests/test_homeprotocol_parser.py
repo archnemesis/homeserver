@@ -7,7 +7,7 @@ from homeserver.homeprotocol.parser import Parser
 
 class ParserTestCase(TestCase):
     def test_parse_message(self):
-        test_message = struct.pack("<ccBHcc6sI16s", b'A', b'E', 1, 26, b'E', b'A', b'ABCDEF', 0x00AACCDD, b'thisteststring')
+        test_message = struct.pack("<ccBH6sI16s", b'A', b'E', 1, 26, b'ABCDEF', 0x00AACCDD, b'thisteststring')
         parser = Parser()
         parser._on_message_received = MagicMock()
         messages = parser.process_bytes(test_message)
@@ -19,7 +19,7 @@ class ParserTestCase(TestCase):
         self.assertEqual(message.name, b'thisteststring\x00\x00')
 
     def test_parse_message_error_count(self):
-        test_message = b'AE420u9gsafdsa;'
+        test_message = b'AE420u9fdsafdsagsafdsa;'
         parser = Parser()
         messages = parser.process_bytes(test_message)
 
