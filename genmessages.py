@@ -22,6 +22,8 @@ MESSAGE_H_TEMPLATE = """
 #ifndef _MESSAGES_H_
 #define _MESSAGES_H_
 
+%(includes)s
+
 #define MESSAGE_HEADER_SIZE 3
 #define MESSAGE_MAX_DATA_SIZE %(max_size_int)d
 #define MESSAGE_MAX_TOTAL_SIZE (MESSAGE_HEADER_SIZE + MESSAGE_MAX_DATA_SIZE)
@@ -40,6 +42,7 @@ HEADER_TEMPLATE = """
 #define _%(name_uc)s_MESSAGE_H_
 
 #include "message.h"
+#include <stdint.h>
 
 #define MESSAGE_%(name_uc)s_ID %(id)d
 #define MESSAGE_%(name_uc)s_LENGTH %(size)d
@@ -100,7 +103,7 @@ def pack_message(message):
     header_data = header.pack()
     message_data = message.pack()
 
-    data = struct.pack('<cc3scc%ds' % message.MESSAGE_SIZE, b'A', b'E', header_data, b'E', b'A', message_data)
+    data = struct.pack('<cc3s%ds' % message.MESSAGE_SIZE, b'A', b'E', header_data, message_data)
     return data
 
 
@@ -201,19 +204,13 @@ def process_message(code_format, messagedef, output_directory):
         output.append("")
         output.append("")
 
+        print("Generating %s..." % os.path.join(output_directory, "%s.py" % cc2us(messagedef['name'])))
         with open(os.path.join(output_directory, "%s.py" % cc2us(messagedef['name'])), "w") as fp:
             fp.write("\n".join(output))
 
     elif code_format == "c":
-        header_fp = open(os.path.join(output_directory, "%s.h" % cc2us(messagedef['name'])), "w")
-        source_fp = open(os.path.join(output_directory, "%s.c" % cc2us(messagedef['name'])), "w")
-
         header_output = []
         source_output = []
-
-        header_output.append("#ifndef _%s_MESSAGE_H_" % cc2us(messagedef['name']).upper())
-        header_output.append("#define _%s_MESSAGE_H_" % cc2us(messagedef['name']).upper())
-        header_output.append("")
 
         struct_members = []
         for p in messagedef['params']:
@@ -236,22 +233,28 @@ def process_message(code_format, messagedef, output_directory):
             "size": total_size
         }
 
-        header_fp.write(header_output)
-        header_fp.close()
+        print("Generating %s..." % os.path.join(output_directory, "%s.h" % cc2us(messagedef['name'])))
+        with open(os.path.join(output_directory, "%s.h" % cc2us(messagedef['name'])), "w") as header_fp:
+            header_fp.write(header_output)
+            header_fp.close()
 
-        source_fp.write(source_output)
-        source_fp.close()
+        print("Generating %s..." % os.path.join(output_directory, "%s.c" % cc2us(messagedef['name'])))
+        with open(os.path.join(output_directory, "%s.c" % cc2us(messagedef['name'])), "w") as source_fp:
+            source_fp.write(source_output)
+            source_fp.close()
 
 
 def process_format_python(message_defs, output_directory):
     message_names = [message['name'] for message in message_defs]
 
+    print("Generating %s..." % os.path.join(output_directory, "__init__.py"))
     with open(os.path.join(output_directory, "__init__.py"), "w") as fp:
         fp.write("from .message import pack_message\n")
         fp.write("from .message import Message, MessageHeader\n")
         for name in message_names:
             fp.write("from .%s import %sMessage\n" % (cc2us(name).lower(), name))
 
+    print("Generating %s..." % os.path.join(output_directory, "message.py"))
     with open(os.path.join(output_directory, "message.py"), "w") as fp:
         fp.write(MESSAGE_INIT_TEMPLATE)
 
@@ -262,12 +265,15 @@ def process_format_python(message_defs, output_directory):
 def process_format_c(message_defs, output_directory):
     message_names = [message['name'] for message in message_defs]
 
+    print("Generating %s..." % os.path.join(output_directory, "message.h"))
     with open(os.path.join(output_directory, "message.h"), "w") as fp:
+        includes = []
         for name in message_names:
-            fp.write("#include \"%s.h\"\n" % cc2us(name))
+            includes.append("#include \"%s.h\"" % cc2us(name))
 
         fp.write("\n")
         fp.write(MESSAGE_H_TEMPLATE % {
+            "includes": "\n".join(includes),
             "max_size_int": math.ceil(get_max_message_size(message_defs) / 4.0)
         })
 

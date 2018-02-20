@@ -9,7 +9,7 @@ def pack_message(message):
     header_data = header.pack()
     message_data = message.pack()
 
-    data = struct.pack('<cc3scc%ds' % message.MESSAGE_SIZE, b'A', b'E', header_data, b'E', b'A', message_data)
+    data = struct.pack('<cc3s%ds' % message.MESSAGE_SIZE, b'A', b'E', header_data, message_data)
     return data
 
 
