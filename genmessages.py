@@ -72,8 +72,8 @@ SOURCE_TEMPLATE = """
 #include "%(name)s.h"
 
 void %(name)s_encode(struct message * message, struct %(name)s_message * %(name)s) {
-    message->message_id = %(id)d;
-    message->message_size = %(size)d;
+    message->id = %(id)d;
+    message->size = %(size)d;
     memcpy((void *)message->data, %(name)s, sizeof(struct %(name)s_message));
 }
 
@@ -259,7 +259,7 @@ def process_format_python(message_defs, output_directory):
 def process_format_c(message_defs, output_directory):
     message_names = [message['name'] for message in message_defs]
 
-    with open(os.path.join(output_directory, "messages.h"), "w") as fp:
+    with open(os.path.join(output_directory, "message.h"), "w") as fp:
         for name in message_names:
             fp.write("#include \"%s.h\"\n" % cc2us(name))
 
