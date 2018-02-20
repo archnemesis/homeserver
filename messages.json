@@ -1,0 +1,56 @@
+[
+  {
+    "id": 1,
+    "name": "RequestConfiguration",
+    "params": [
+      {
+        "name": "hwid",
+        "type": "char[6]"
+      },
+      {
+        "name": "ipaddr",
+        "type": "uint32_t"
+      },
+      {
+        "name": "name",
+        "type": "char[16]"
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "name": "IntercomIncomingChannelRequest",
+    "params": [
+      {
+        "name": "hwid_caller",
+        "type": "char[6]"
+      },
+      {
+        "name": "remote_channel_ip",
+        "type": "uint32_t"
+      },
+      {
+        "name": "remote_channel_port",
+        "type": "uint16_t"
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "name": "IntercomIncomingChannelAccept",
+    "params": [
+      {
+        "name": "hwid_caller",
+        "type": "char[6]"
+      },
+      {
+        "name": "local_channel_ip",
+        "type": "uint32_t"
+      },
+      {
+        "name": "local_channel_port",
+        "type": "uint16_t"
+      }
+    ]
+  }
+]
