@@ -41,6 +41,9 @@ HEADER_TEMPLATE = """
 
 #include "message.h"
 
+#define MESSAGE_%(name_uc)s_ID %(id)d
+#define MESSAGE_%(name_uc)s_LENGTH %(size)d
+
 struct __attribute__((__packed__)) %(name)s_message {
 %(struct_members)s
 };
