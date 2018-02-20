@@ -22,17 +22,23 @@ MESSAGE_H_TEMPLATE = """
 #ifndef _MESSAGES_H_
 #define _MESSAGES_H_
 
-%(includes)s
+#include <stdint.h>
+
+%(enums)s
 
 #define MESSAGE_HEADER_SIZE 3
 #define MESSAGE_MAX_DATA_SIZE %(max_size_int)d
 #define MESSAGE_MAX_TOTAL_SIZE (MESSAGE_HEADER_SIZE + MESSAGE_MAX_DATA_SIZE)
 
-struct __attribute__((__packed__)) message {
+struct message {
     uint8_t id;
     uint16_t size;
     uint32_t data[MESSAGE_MAX_DATA_SIZE];
-};
+} __attribute__((packed));
+
+typedef struct message message_t;
+
+%(includes)s
 
 #endif
 """
@@ -50,48 +56,51 @@ HEADER_TEMPLATE = """
 /**
  * %(description)s
  */
-struct __attribute__((__packed__)) %(name)s_message {
+struct %(name)s_message {
 %(struct_members)s
-};
+} __attribute__((packed));
+
+typedef struct %(name)s_message %(name)s_message_t;
 
 /**
  * Encode a message to a buffer, making it ready to send.
  * @param message
  * @param %(name)s_message
  */
-void %(name)s_encode(struct message * message, struct %(name)s_message * %(name)s);
+void %(name)s_encode(message_t *message, %(name)s_message_t *%(name)s);
 
 /**
  * Decode a %(name)s_message stored in a message wrapper.
  * @param message
  * @param %(name)s_message
  */
-void %(name)s_decode(struct message * message, struct %(name)s_message * %(name)s);
+void %(name)s_decode(message_t *message, %(name)s_message_t *%(name)s);
 
 /**
  * Shortcut to send a message.
  * @param message
  */
-void %(name)s_send(struct %(name)s_message * %(name)s);
+void %(name)s_send(%(name)s_message_t *%(name)s);
 
 #endif
 """
 
 SOURCE_TEMPLATE = """
+#include <string.h>
 #include "%(name)s.h"
 
-void %(name)s_encode(struct message * message, struct %(name)s_message * %(name)s) {
+void %(name)s_encode(message_t *message, %(name)s_message_t *%(name)s) {
     message->id = %(id)d;
     message->size = %(size)d;
-    memcpy((void *)message->data, %(name)s, sizeof(struct %(name)s_message));
+    memcpy((void *)message->data, %(name)s, sizeof(%(name)s_message_t));
 }
 
-void %(name)s_decode(struct message * message, struct %(name)s_message * %(name)s) {
-    memcpy((void *)%(name)s, (void *)message, sizeof(struct %(name)s_message));
+void %(name)s_decode(message_t *message, %(name)s_message_t *%(name)s) {
+    memcpy((void *)%(name)s, (void *)message, sizeof(%(name)s_message_t));
 }
 
-void %(name)s_send(struct %(name)s_message * message) {
-    (void)message;
+void %(name)s_send(%(name)s_message_t *%(name)s) {
+    (void)%(name)s;
 }
 """
 
@@ -108,6 +117,9 @@ def pack_message(message):
 
     data = struct.pack('<cc3s%ds' % message.MESSAGE_SIZE, b'A', b'E', header_data, message_data)
     return data
+
+
+{enums}
 
 
 class Message(object):
@@ -250,7 +262,7 @@ def process_message(code_format, messagedef, output_directory):
 
 
 def process_format_python(message_defs, output_directory):
-    message_names = [message['name'] for message in message_defs]
+    message_names = [message['name'] for message in message_defs['messages']]
 
     print("Generating %s..." % os.path.join(output_directory, "__init__.py"))
     with open(os.path.join(output_directory, "__init__.py"), "w") as fp:
@@ -258,31 +270,50 @@ def process_format_python(message_defs, output_directory):
         fp.write("from .message import Message, MessageHeader\n")
         for name in message_names:
             fp.write("from .%s import %sMessage\n" % (cc2us(name).lower(), name))
+        fp.write("\n")
 
     print("Generating %s..." % os.path.join(output_directory, "message.py"))
     with open(os.path.join(output_directory, "message.py"), "w") as fp:
-        fp.write(MESSAGE_INIT_TEMPLATE)
+        enum_output = []
+        for enum in message_defs['enums']:
+            enum_output.append("class %s(object):" % enum['name'])
 
-    for message in message_defs:
+            for (name, value) in enum['values']:
+                enum_output.append("    %s = %d" % (name, value))
+        fp.write(MESSAGE_INIT_TEMPLATE.format(enums="\n".join(enum_output)))
+
+    for message in message_defs['messages']:
         process_message("python", message, output_directory)
 
 
 def process_format_c(message_defs, output_directory):
-    message_names = [message['name'] for message in message_defs]
+    message_names = [message['name'] for message in message_defs['messages']]
 
     print("Generating %s..." % os.path.join(output_directory, "message.h"))
     with open(os.path.join(output_directory, "message.h"), "w") as fp:
         includes = []
         for name in message_names:
             includes.append("#include \"%s.h\"" % cc2us(name))
+        includes.append("")
+
+        enums = []
+        for enum in message_defs['enums']:
+            enums.append("enum %s {" % enum['name'])
+            enum_options = []
+            for (name, value) in enum['values']:
+                enum_options.append("  %s = %d" % (name, value))
+            enums.append(",\n".join(enum_options))
+            enums.append("} __attribute__ ((packed));")
+            enums.append("")
 
         fp.write("\n")
         fp.write(MESSAGE_H_TEMPLATE % {
             "includes": "\n".join(includes),
-            "max_size_int": math.ceil(get_max_message_size(message_defs) / 4.0)
+            "max_size_int": math.ceil(get_max_message_size(message_defs['messages']) / 4.0),
+            "enums": "\n".join(enums)
         })
 
-    for message in message_defs:
+    for message in message_defs['messages']:
         process_message("c", message, output_directory)
 
 
@@ -299,8 +330,9 @@ def main():
     if not os.path.isdir(output_directory):
         os.mkdir(output_directory)
     else:
-        shutil.rmtree(output_directory)
-        os.mkdir(output_directory)
+        for f in os.listdir(output_directory):
+            if os.path.isfile(os.path.join(output_directory, f)):
+                os.unlink(os.path.join(output_directory, f))
 
     with open(filename, 'r') as defp:
         message_defs = json.load(defp)

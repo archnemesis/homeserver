@@ -13,6 +13,13 @@ def pack_message(message):
     return data
 
 
+class ErrorCodes(object):
+    RequestError = 0
+    RequestDeniedPermissions = 1
+    RequestDeniedUnRegistered = 2
+    RequestFailed = 3
+
+
 class Message(object):
     @classmethod
     def cls_for_message_id(cls, message_id):
