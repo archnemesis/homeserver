@@ -21,6 +21,8 @@ HEADER_TEMPLATE = """
 #ifndef _%(name_uc)s_MESSAGE_H_
 #define _%(name_uc)s_MESSAGE_H_
 
+#include "lwip/netbuf.h"
+
 struct __attribute__((__packed__)) %(name)s_message {
 %(struct_members)s
 };
@@ -39,6 +41,13 @@ size_t %(name)s_encode(void *buffer, struct %(name)s_message * message);
  */
 void %(name)s_send(struct %(name)s_message * message);
 
+/**
+ * Allocate and return a netbuf containing the message.
+ * @param message
+ * @return netbuf
+ */
+struct netbuf *%(name)s_encode_netbuf(struct %(name)s_message * message);
+
 #endif
 """
 
@@ -46,17 +55,24 @@ SOURCE_TEMPLATE = """
 #include "%(name)s.h"
 
 size_t %(name)s_encode(void *buffer, struct %(name)s_message * message) {
-    message->message_id = 1;
-    message->message_size = 26;
-    memcpy(buffer, (void *)&header, sizeof(struct message_header));
-    memcpy((void *)(buffer + sizeof(message_header)), "AE", 2);
-    memcpy((void *)(buffer + sizeof(message_header) + 2), (void *)message, sizeof(struct request_configuration_message));
-    memcpy((void *)(buffer + sizeof(message_header) + 2 + sizeof(struct request_configuration_message)), "EA", 2);
-    return (sizeof(message_header) + 4 + sizeof(request_configuration_message));
+    message->message_id = %(id)d;
+    message->message_size = %(size)d;
+    memcpy((void *)buffer, "AE", 2);
+    memcpy((void *)(buffer + 2), (void *)&header, sizeof(struct message_header));
+    memcpy((void *)(buffer + 2 + sizeof(struct message_header)), "EA", 2);
+    memcpy((void *)(buffer + 2 + sizeof(struct message_header) + 2), (void *)message, sizeof(struct %(name)s_message));
+    return (sizeof(struct message_header) + 4 + sizeof(struct %(name)s_message));
 }
 
 void %(name)s_send(struct %(name)s_message * message) {
     (void)message;
+}
+
+struct netbuf *%(name)s_encode_netbuf(struct %(name)s_message * message) {
+    struct netbuf *buf = netbuf_new();
+    void *buffer = netbuf_alloc(buf, %(size)d);
+    %(name)s_encode(buffer, message);
+    return buf;
 }
 """
 
@@ -177,13 +193,17 @@ def process_message(code_format, messagedef, output_directory):
         header_output = HEADER_TEMPLATE % {
             "name": cc2us(messagedef['name']),
             "name_uc": cc2us(messagedef['name']).upper(),
-            "struct_members": struct_members
+            "struct_members": struct_members,
+            "id": messagedef['id'],
+            "size": total_size
             }
 
         source_output = SOURCE_TEMPLATE % {
             "name": cc2us(messagedef['name']),
             "name_uc": cc2us(messagedef['name']).upper(),
-            "struct_members": struct_members
+            "struct_members": struct_members,
+            "id": messagedef['id'],
+            "size": total_size
         }
 
         header_fp.write(header_output)
