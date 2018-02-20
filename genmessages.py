@@ -39,7 +39,7 @@ HEADER_TEMPLATE = """
 #ifndef _%(name_uc)s_MESSAGE_H_
 #define _%(name_uc)s_MESSAGE_H_
 
-#include "lwip/netbuf.h"
+#include "message.h"
 
 struct __attribute__((__packed__)) %(name)s_message {
 %(struct_members)s
