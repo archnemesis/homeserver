@@ -47,6 +47,9 @@ HEADER_TEMPLATE = """
 #define MESSAGE_%(name_uc)s_ID %(id)d
 #define MESSAGE_%(name_uc)s_LENGTH %(size)d
 
+/**
+ * %(description)s
+ */
 struct __attribute__((__packed__)) %(name)s_message {
 %(struct_members)s
 };
@@ -222,7 +225,8 @@ def process_message(code_format, messagedef, output_directory):
             "name_uc": cc2us(messagedef['name']).upper(),
             "struct_members": struct_members,
             "id": messagedef['id'],
-            "size": total_size
+            "size": total_size,
+            "description": messagedef['description'],
             }
 
         source_output = SOURCE_TEMPLATE % {
@@ -230,7 +234,8 @@ def process_message(code_format, messagedef, output_directory):
             "name_uc": cc2us(messagedef['name']).upper(),
             "struct_members": struct_members,
             "id": messagedef['id'],
-            "size": total_size
+            "size": total_size,
+            "description": messagedef['description'],
         }
 
         print("Generating %s..." % os.path.join(output_directory, "%s.h" % cc2us(messagedef['name'])))

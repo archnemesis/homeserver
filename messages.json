@@ -2,6 +2,7 @@
   {
     "id": 1,
     "name": "RequestConfiguration",
+    "description": "Sent to request configuration from server.",
     "params": [
       {
         "name": "hwid",
@@ -20,6 +21,7 @@
   {
     "id": 2,
     "name": "IntercomIncomingChannelRequest",
+    "description": "Sent when a client is requesting communications from the server.",
     "params": [
       {
         "name": "hwid_caller",
@@ -38,6 +40,7 @@
   {
     "id": 3,
     "name": "IntercomIncomingChannelAccept",
+    "description": "Sent when a client accepts communications from the server.",
     "params": [
       {
         "name": "hwid_caller",
