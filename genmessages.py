@@ -5,6 +5,7 @@ import sys
 import io
 import os
 import shutil
+import math
 
 
 TYPES = {
@@ -16,6 +17,23 @@ TYPES = {
     'double':       (8, 'd', 'd'),
     'char':         (1, 'c', 's'),
 }
+
+MESSAGE_H_TEMPLATE = """
+#ifndef _MESSAGES_H_
+#define _MESSAGES_H_
+
+#define MESSAGE_HEADER_SIZE 3
+#define MESSAGE_MAX_DATA_SIZE %(max_size_int)d
+#define MESSAGE_MAX_TOTAL_SIZE (MESSAGE_HEADER_SIZE + MESSAGE_MAX_DATA_SIZE)
+
+struct __attribute__((__packed__)) message {
+    uint8_t id;
+    uint16_t size;
+    uint32_t data[MESSAGE_MAX_DATA_SIZE];
+};
+
+#endif
+"""
 
 HEADER_TEMPLATE = """
 #ifndef _%(name_uc)s_MESSAGE_H_
@@ -29,24 +47,23 @@ struct __attribute__((__packed__)) %(name)s_message {
 
 /**
  * Encode a message to a buffer, making it ready to send.
- * @param buffer
  * @param message
- * @return number of bytes encoded
+ * @param %(name)s_message
  */
-size_t %(name)s_encode(void *buffer, struct %(name)s_message * message);
+void %(name)s_encode(struct message * message, struct %(name)s_message * %(name)s);
+
+/**
+ * Decode a %(name)s_message stored in a message wrapper.
+ * @param message
+ * @param %(name)s_message
+ */
+void %(name)s_decode(struct message * message, struct %(name)s_message * %(name)s);
 
 /**
  * Shortcut to send a message.
  * @param message
  */
-void %(name)s_send(struct %(name)s_message * message);
-
-/**
- * Allocate and return a netbuf containing the message.
- * @param message
- * @return netbuf
- */
-struct netbuf *%(name)s_encode_netbuf(struct %(name)s_message * message);
+void %(name)s_send(struct %(name)s_message * %(name)s);
 
 #endif
 """
@@ -54,25 +71,18 @@ struct netbuf *%(name)s_encode_netbuf(struct %(name)s_message * message);
 SOURCE_TEMPLATE = """
 #include "%(name)s.h"
 
-size_t %(name)s_encode(void *buffer, struct %(name)s_message * message) {
+void %(name)s_encode(struct message * message, struct %(name)s_message * %(name)s) {
     message->message_id = %(id)d;
     message->message_size = %(size)d;
-    memcpy((void *)buffer, "AE", 2);
-    memcpy((void *)(buffer + 2), (void *)&header, sizeof(struct message_header));
-    memcpy((void *)(buffer + 2 + sizeof(struct message_header)), "EA", 2);
-    memcpy((void *)(buffer + 2 + sizeof(struct message_header) + 2), (void *)message, sizeof(struct %(name)s_message));
-    return (sizeof(struct message_header) + 4 + sizeof(struct %(name)s_message));
+    memcpy((void *)message->data, %(name_s), sizeof(struct %(name)s_message));
+}
+
+void %(name)s_decode(struct message * message, struct %(name)s_message * %(name)s) {
+    memcpy((void *)%(name)s, (void *)message, sizeof(struct %(name)s_message));
 }
 
 void %(name)s_send(struct %(name)s_message * message) {
     (void)message;
-}
-
-struct netbuf *%(name)s_encode_netbuf(struct %(name)s_message * message) {
-    struct netbuf *buf = netbuf_new();
-    void *buffer = netbuf_alloc(buf, %(size)d);
-    %(name)s_encode(buffer, message);
-    return buf;
 }
 """
 
@@ -128,6 +138,24 @@ def format_c_type(ctype, name):
         return "%s %s%s" % (ctype[:i], name, ctype[i:])
     except ValueError:
         return "%s %s" % (ctype, name)
+
+
+def get_max_message_size(messages):
+    max_size = 0
+    for messagedef in messages:
+        total_size = 0
+        for param in messagedef['params']:
+            if param['type'] in TYPES.keys():
+                total_size = TYPES[param['type']][0]
+            else:
+                for t in TYPES.keys():
+                    if param['type'].startswith("%s[" % t):
+                        matches = re.search("%s\[([0-9]+)\]" % t, param['type'])
+                        count = int(matches.group(1))
+                        total_size = TYPES[t][0] * count
+        if total_size > max_size:
+            max_size = total_size
+    return max_size
 
 
 def process_message(code_format, messagedef, output_directory):
@@ -189,7 +217,6 @@ def process_message(code_format, messagedef, output_directory):
             struct_members.append("  %s;" % format_c_type(p['type'], p['name']))
         struct_members = "\n".join(struct_members)
 
-
         header_output = HEADER_TEMPLATE % {
             "name": cc2us(messagedef['name']),
             "name_uc": cc2us(messagedef['name']).upper(),
@@ -235,6 +262,11 @@ def process_format_c(message_defs, output_directory):
     with open(os.path.join(output_directory, "messages.h"), "w") as fp:
         for name in message_names:
             fp.write("#include \"%s.h\"\n" % cc2us(name))
+
+        fp.write("\n")
+        fp.write(MESSAGE_H_TEMPLATE % {
+            "max_size_int": math.ceil(get_max_message_size(message_defs) / 4.0)
+        })
 
     for message in message_defs:
         process_message("c", message, output_directory)
