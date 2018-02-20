@@ -1,3 +1,4 @@
+
 import struct
 
 
@@ -22,12 +23,6 @@ class Message(object):
             raise RuntimeError("No message class matching %s" % message_id)
 
 
-#
-# struct MessageHeader {
-#     uint8_t message_id;
-#     uint16_t message_size;
-# }
-
 class MessageHeader(Message):
     MESSAGE_ID = 0
     MESSAGE_SIZE = 3
@@ -42,26 +37,3 @@ class MessageHeader(Message):
 
     def pack(self):
         return struct.pack(self.STRUCT_FORMAT, self.message_id, self.message_size)
-
-
-# struct RequestConfigurationMessage {
-#     char hwid[6];
-#     uint32_t ipaddr;
-#     char name[16];
-# }
-
-class RequestConfigurationMessage(Message):
-    MESSAGE_ID = 1
-    MESSAGE_SIZE = 26
-    STRUCT_FORMAT = "<6sI16s"
-
-    def __init__(self, hwid=None, ipaddr=None, name=None):
-        self.hwid = hwid
-        self.ipaddr = ipaddr
-        self.name = name
-
-    def __str__(self):
-        return "<RequestConfigurationMessage(%s, %s, %s)" % (self.hwid, self.ipaddr, self.name)
-
-    def pack(self):
-        return struct.pack(self.STRUCT_FORMAT, self.hwid, self.ipaddr, self.name)

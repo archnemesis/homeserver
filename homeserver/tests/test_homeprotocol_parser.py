@@ -25,4 +25,3 @@ class ParserTestCase(TestCase):
 
         self.assertEqual(len(messages), 0)
         self.assertEqual(parser.error_count, 1)
-        
