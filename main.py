@@ -1,6 +1,7 @@
 import argparse
 import socketserver
 import ipaddress
+from homeserver.homeprotocol import messages
 from homeserver.homeprotocol.parser import Parser
 
 
@@ -25,10 +26,8 @@ class HomeServerTCPHandler(socketserver.BaseRequestHandler):
                     return
 
                 for message in self.parser.process_bytes(data):
-                    print("Received configuration request")
-                    print("    HWID: %r" % message.hwid)
-                    print("    IP Address: %s" % str(ipaddress.IPv4Address(message.ipaddr)))
-                    print("    Name: %s" % message.name.decode("ascii"))
+                    if type(message) is messages.RequestConfigurationMessage:
+                        pass
 
         print("End connection")
 
