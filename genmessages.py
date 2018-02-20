@@ -74,7 +74,7 @@ SOURCE_TEMPLATE = """
 void %(name)s_encode(struct message * message, struct %(name)s_message * %(name)s) {
     message->message_id = %(id)d;
     message->message_size = %(size)d;
-    memcpy((void *)message->data, %(name_s), sizeof(struct %(name)s_message));
+    memcpy((void *)message->data, %(name)s, sizeof(struct %(name)s_message));
 }
 
 void %(name)s_decode(struct message * message, struct %(name)s_message * %(name)s) {
