@@ -1,5 +1,6 @@
 import argparse
 import socketserver
+import socket
 import ipaddress
 from homeserver.homeprotocol import messages
 from homeserver.homeprotocol.parser import Parser
@@ -24,7 +25,7 @@ class HomeServerTCPHandler(socketserver.BaseRequestHandler):
                 if len(data) == 0:
                     print("Connection closed")
                     return
-
+                print("Got data: %r" % data)
                 for message in self.parser.process_bytes(data):
                     if type(message) is messages.RequestConfigurationMessage:
                         print("Got a request for config!")

@@ -27,7 +27,7 @@ MESSAGE_H_TEMPLATE = """
 %(enums)s
 
 #define MESSAGE_HEADER_SIZE 3
-#define MESSAGE_MAX_DATA_SIZE %(max_size_int)d
+#define MESSAGE_MAX_DATA_SIZE (%(max_size_int)d * 4)
 #define MESSAGE_MAX_TOTAL_SIZE (MESSAGE_HEADER_SIZE + MESSAGE_MAX_DATA_SIZE)
 
 struct message {
@@ -109,7 +109,7 @@ import struct
 
 
 MESSAGE_HEADER_SIZE = 3
-MESSAGE_MAX_DATA_SIZE = {max_size_int}
+MESSAGE_MAX_DATA_SIZE = {max_size_int} * 4
 MESSAGE_MAX_TOTAL_SIZE = MESSAGE_HEADER_SIZE + MESSAGE_MAX_DATA_SIZE
 
 
