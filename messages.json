@@ -122,6 +122,17 @@
           "type": "uint16_t"
         }
       ]
+    },
+    {
+      "id": 6,
+      "name": "Ping",
+      "description": "A short packet that is used to test connectivity.",
+      "params": [
+        {
+          "name": "timestamp",
+          "type": "uint32_t"
+        }
+      ]
     }
   ]
 }
