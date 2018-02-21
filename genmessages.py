@@ -27,13 +27,13 @@ MESSAGE_H_TEMPLATE = """
 %(enums)s
 
 #define MESSAGE_HEADER_SIZE 3
-#define MESSAGE_MAX_DATA_SIZE (%(max_size_int)d * 4)
+#define MESSAGE_MAX_DATA_SIZE %(max_size)d
 #define MESSAGE_MAX_TOTAL_SIZE (MESSAGE_HEADER_SIZE + MESSAGE_MAX_DATA_SIZE)
 
 struct message {
     uint8_t id;
     uint16_t size;
-    uint32_t data[MESSAGE_MAX_DATA_SIZE];
+    uint32_t data[%(max_size_int)d];
 } __attribute__((packed));
 
 typedef struct message message_t;
@@ -109,7 +109,7 @@ import struct
 
 
 MESSAGE_HEADER_SIZE = 3
-MESSAGE_MAX_DATA_SIZE = {max_size_int} * 4
+MESSAGE_MAX_DATA_SIZE = {max_size}
 MESSAGE_MAX_TOTAL_SIZE = MESSAGE_HEADER_SIZE + MESSAGE_MAX_DATA_SIZE
 
 
@@ -268,6 +268,7 @@ def process_message(code_format, messagedef, output_directory):
 
 def process_format_python(message_defs, output_directory):
     message_names = [message['name'] for message in message_defs['messages']]
+    enum_names = [enum['name'] for enum in message_defs['enums']]
 
     print("Generating %s..." % os.path.join(output_directory, "__init__.py"))
     with open(os.path.join(output_directory, "__init__.py"), "w") as fp:
@@ -275,6 +276,8 @@ def process_format_python(message_defs, output_directory):
         fp.write("from .message import Message, MessageHeader\n")
         for name in message_names:
             fp.write("from .%s import %sMessage\n" % (cc2us(name).lower(), name))
+        for name in enum_names:
+            fp.write("from .message import %s\n" % name)
         fp.write("\n")
 
     print("Generating %s..." % os.path.join(output_directory, "message.py"))
@@ -287,7 +290,8 @@ def process_format_python(message_defs, output_directory):
                 enum_output.append("    %s = %d" % (name, value))
         fp.write(MESSAGE_INIT_TEMPLATE.format(
             enums="\n".join(enum_output),
-            max_size_int=math.ceil(get_max_message_size(message_defs['messages']) / 4.0)))
+            max_size_int=math.ceil(get_max_message_size(message_defs['messages']) / 4.0),
+            max_size=get_max_message_size(message_defs['messages'])))
 
     for message in message_defs['messages']:
         process_message("python", message, output_directory)
@@ -317,6 +321,7 @@ def process_format_c(message_defs, output_directory):
         fp.write(MESSAGE_H_TEMPLATE % {
             "includes": "\n".join(includes),
             "max_size_int": math.ceil(get_max_message_size(message_defs['messages']) / 4.0),
+            "max_size": get_max_message_size(message_defs['messages']),
             "enums": "\n".join(enums)
         })
 

@@ -13,12 +13,16 @@ class HomeServerTCPHandler(socketserver.BaseRequestHandler):
 
     def handle(self):
         self.request.settimeout(1)
+        timeout_counter = 0
 
         while True:
             try:
                 data = self.request.recv(1024)
             except socket.timeout as e:
-                pass
+                timeout_counter += 1
+                if timeout_counter > 30:
+                    print("Connection closed")
+                    return
             except socket.error as e:
                 return
             else:
@@ -28,7 +32,12 @@ class HomeServerTCPHandler(socketserver.BaseRequestHandler):
                 print("Got data: %r" % data)
                 for message in self.parser.process_bytes(data):
                     if type(message) is messages.RequestConfigurationMessage:
-                        print("Got a request for config!")
+                        payload = messages.ConfigurationPayloadMessage()
+                        payload.display_name = b'Test Device'
+                        payload.description = b'Test Device 1 STM32'
+                        payload.theme = messages.DeviceUITheme.Default
+                        msg_bytes = messages.pack_message(payload)
+                        self.request.sendall(msg_bytes)
 
         print("End connection")
 
