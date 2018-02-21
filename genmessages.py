@@ -179,8 +179,8 @@ def get_max_message_size(messages):
                         matches = re.search("%s\[([0-9]+)\]" % t, param['type'])
                         count = int(matches.group(1))
                         total_size = TYPES[t][0] * count
-        if total_size > max_size:
-            max_size = total_size
+            if total_size > max_size:
+                max_size = total_size
     return max_size
 
 
