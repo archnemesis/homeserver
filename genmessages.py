@@ -172,15 +172,15 @@ def get_max_message_size(messages):
         total_size = 0
         for param in messagedef['params']:
             if param['type'] in TYPES.keys():
-                total_size = TYPES[param['type']][0]
+                total_size += TYPES[param['type']][0]
             else:
                 for t in TYPES.keys():
                     if param['type'].startswith("%s[" % t):
                         matches = re.search("%s\[([0-9]+)\]" % t, param['type'])
                         count = int(matches.group(1))
-                        total_size = TYPES[t][0] * count
-            if total_size > max_size:
-                max_size = total_size
+                        total_size += TYPES[t][0] * count
+        if total_size > max_size:
+            max_size = total_size
     return max_size
 
 
