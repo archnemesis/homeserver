@@ -3,7 +3,7 @@ import struct
 
 
 MESSAGE_HEADER_SIZE = 3
-MESSAGE_MAX_DATA_SIZE = 32
+MESSAGE_MAX_DATA_SIZE = 234
 MESSAGE_MAX_TOTAL_SIZE = MESSAGE_HEADER_SIZE + MESSAGE_MAX_DATA_SIZE
 
 
@@ -19,20 +19,24 @@ def pack_message(message):
 
 
 class ErrorCode(object):
-    RequestError = 0
-    RequestDeniedPermissions = 1
-    RequestDeniedUnRegistered = 2
-    RequestFailed = 3
+    RequestError = 1
+    RequestDeniedPermissions = 2
+    RequestDeniedUnRegistered = 3
+    RequestFailed = 4
 class DeviceType(object):
-    Computer = 0
-    WallPanelSmall = 1
-    WallPanelMedium = 2
-    WallPanelLarge = 3
-    Keypad = 4
+    Computer = 1
+    WallPanelSmall = 2
+    WallPanelMedium = 3
+    WallPanelLarge = 4
+    Keypad = 5
 class DeviceUITheme(object):
-    Default = 0
-    Light = 1
-    Dark = 2
+    Default = 1
+    Light = 2
+    Dark = 3
+class ControlType(object):
+    OnOff = 1
+    Slider = 2
+    Momentary = 3
 
 
 class Message(object):
@@ -56,6 +60,14 @@ class MessageHeader(Message):
 
     def __str__(self):
         return "<MessageHeader(%d, %d)>" % (self.message_id, self.message_size)
+
+    @classmethod
+    def unpack(cls, data):
+        msg_data = struct.unpack(cls.STRUCT_FORMAT, data)
+        obj = cls()
+        obj.message_id = msg_data[0]
+        obj.message_size = msg_data[1]
+        return obj
 
     def pack(self):
         return struct.pack(self.STRUCT_FORMAT, self.message_id, self.message_size)

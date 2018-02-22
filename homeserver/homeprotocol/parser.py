@@ -45,8 +45,7 @@ class Parser(object):
 
                 if self._body_bytes_remaining == 0:
                     message_cls = Message.cls_for_message_id(self._pending_packet_header.message_id)
-                    message_data = struct.unpack(message_cls.STRUCT_FORMAT, self._buffer)
-                    message_obj = message_cls(*message_data)
+                    message_obj = message_cls.unpack(self._buffer)
                     messages_out.append(message_obj)
 
                     self._reset_state()
@@ -61,8 +60,7 @@ class Parser(object):
                     self._packet_counter = 0
 
                     packet_cls = Message.cls_for_message_id(0)
-                    packet_data = struct.unpack(packet_cls.STRUCT_FORMAT, self._buffer)
-                    packet_obj = packet_cls(*packet_data)
+                    packet_obj = packet_cls.unpack(self._buffer)
 
                     if packet_obj.message_size > 0:
                         if packet_obj.message_size > MESSAGE_MAX_DATA_SIZE:

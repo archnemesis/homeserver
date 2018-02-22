@@ -1,3 +1,4 @@
+
 import struct
 from .message import Message
 
@@ -6,10 +7,22 @@ class RequestErrorMessage(Message):
     MESSAGE_SIZE = 18
     STRUCT_FORMAT = "<H16s"
 
+    
+
     def __init__(self, code=None, message=None):
         self.code = code
         self.message = message
-    
-    def pack(self):
-        return struct.pack(self.STRUCT_FORMAT, self.code, self.message)
 
+    @classmethod
+    def unpack(cls, data):
+        data = struct.unpack(cls.STRUCT_FORMAT, data)
+        obj = cls()
+        obj.code = data[0]
+        obj.message = data[1]
+        return obj
+
+    def pack(self):
+        struct_data = []
+        struct_data.append(self.code)
+        struct_data.append(self.message)
+        return struct.pack(self.STRUCT_FORMAT, *struct_data)

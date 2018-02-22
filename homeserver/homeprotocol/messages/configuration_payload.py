@@ -1,16 +1,63 @@
+
 import struct
 from .message import Message
 
 class ConfigurationPayloadMessage(Message):
     MESSAGE_ID = 5
-    MESSAGE_SIZE = 66
-    STRUCT_FORMAT = "<32s32sH"
+    MESSAGE_SIZE = 234
+    STRUCT_FORMAT = "<32s32sH42s42s42s42s"
 
-    def __init__(self, display_name=None, description=None, theme=None):
+    class ConfigurationPayloadMessageControlsParam(object):
+        STRUCT_FORMAT = "<HII16s16s"
+        STRUCT_SIZE = 42
+        
+        def __init__(self, type=None, min=None, max=None, name=None, description=None):
+            self.type = type
+            self.min = min
+            self.max = max
+            self.name = name
+            self.description = description
+        
+        @classmethod
+        def unpack(cls, data):
+            data = struct.unpack(cls.STRUCT_FORMAT, data)
+            obj = cls()
+            obj.type = data[0]
+            obj.min = data[1]
+            obj.max = data[2]
+            obj.name = data[3]
+            obj.description = data[4]
+            
+        def pack(self):
+            return struct.pack(self.STRUCT_FORMAT, self.type, self.min, self.max, self.name, self.description)
+    
+
+    def __init__(self, display_name=None, description=None, theme=None, controls=None):
         self.display_name = display_name
         self.description = description
         self.theme = theme
-    
-    def pack(self):
-        return struct.pack(self.STRUCT_FORMAT, self.display_name, self.description, self.theme)
+        self.controls = controls
 
+    @classmethod
+    def unpack(cls, data):
+        data = struct.unpack(cls.STRUCT_FORMAT, data)
+        obj = cls()
+        obj.display_name = data[0]
+        obj.description = data[1]
+        obj.theme = data[2]
+        obj.controls = []
+        for i in range(4):
+            obj.controls.append(cls.ConfigurationPayloadMessageControlsParam.unpack(data[3 + i]))
+        return obj
+
+    def pack(self):
+        struct_data = []
+        struct_data.append(self.display_name)
+        struct_data.append(self.description)
+        struct_data.append(self.theme)
+        for i in range(4):
+            try:
+                struct_data.append(self.controls[i].pack())
+            except KeyError:
+                struct_data.append(b'0' * cls.ConfigurationPayloadMessageControlsParam.STRUCT_SIZE)
+        return struct.pack(self.STRUCT_FORMAT, *struct_data)

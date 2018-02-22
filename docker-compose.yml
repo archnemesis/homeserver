@@ -1,5 +1,19 @@
-mongodb:
-  image: mongo
-  ports:
-   - "27017:27017"
-   - "28017:28017"
+version: '2'
+
+services:
+  mongodb:
+    image: mongo
+    ports:
+     - "27017:27017"
+     - "28017:28017"
+  homeconsole:
+    environment:
+      - HOMECONSOLE_SETTINGS=console_settings.py
+    build: .
+    command: flask run --host 0.0.0.0 --port 8000
+    volumes:
+      - .:/code
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mongodb

@@ -34,7 +34,7 @@ struct message {
     uint8_t id;
     uint16_t size;
     uint32_t data[%(max_size_int)d];
-} __attribute__((packed));
+} __packed;
 
 typedef struct message message_t;
 
@@ -58,7 +58,7 @@ HEADER_TEMPLATE = """
  */
 struct %(name)s_message {
 %(struct_members)s
-} __attribute__((packed));
+} __packed;
 
 typedef struct %(name)s_message %(name)s_message_t;
 
@@ -102,6 +102,33 @@ void %(name)s_decode(message_t *message, %(name)s_message_t *%(name)s) {
 void %(name)s_send(%(name)s_message_t *%(name)s) {
     (void)%(name)s;
 }
+"""
+
+MESSAGE_PY_TEMPLATE = """
+import struct
+from .message import Message
+
+class {name}Message(Message):
+    MESSAGE_ID = {id}
+    MESSAGE_SIZE = {total_size}
+    STRUCT_FORMAT = "{struct_format}"
+
+    {struct_classes}
+
+    def __init__(self, {ctor_args}):
+        {ctor_inits}
+
+    @classmethod
+    def unpack(cls, data):
+        data = struct.unpack(cls.STRUCT_FORMAT, data)
+        obj = cls()
+        {unpack_inits}
+        return obj
+
+    def pack(self):
+        struct_data = []
+        {pack_inits}
+        return struct.pack(self.STRUCT_FORMAT, *struct_data)
 """
 
 MESSAGE_INIT_TEMPLATE = """
@@ -149,6 +176,14 @@ class MessageHeader(Message):
     def __str__(self):
         return "<MessageHeader(%d, %d)>" % (self.message_id, self.message_size)
 
+    @classmethod
+    def unpack(cls, data):
+        msg_data = struct.unpack(cls.STRUCT_FORMAT, data)
+        obj = cls()
+        obj.message_id = msg_data[0]
+        obj.message_size = msg_data[1]
+        return obj
+
     def pack(self):
         return struct.pack(self.STRUCT_FORMAT, self.message_id, self.message_size)
 """
@@ -166,67 +201,148 @@ def format_c_type(ctype, name):
         return "%s %s" % (ctype, name)
 
 
-def get_max_message_size(messages):
-    max_size = 0
-    for messagedef in messages:
-        total_size = 0
-        for param in messagedef['params']:
-            if param['type'] in TYPES.keys():
-                total_size += TYPES[param['type']][0]
+def get_param_total_size(params):
+    total_size = 0
+    for param in params:
+        if param['type'] in TYPES.keys():
+            total_size += TYPES[param['type']][0]
+        else:
+            if param['type'].startswith('struct'):
+                struct_size = get_param_total_size(param['params'])
+                if param['type'].startswith("struct["):
+                    matches = re.search("struct\[([0-9]+)\]", param['type'])
+                    count = int(matches.group(1))
+                    struct_size = struct_size * count
+                total_size += struct_size
             else:
                 for t in TYPES.keys():
                     if param['type'].startswith("%s[" % t):
                         matches = re.search("%s\[([0-9]+)\]" % t, param['type'])
                         count = int(matches.group(1))
                         total_size += TYPES[t][0] * count
+    return total_size
+
+
+def get_max_message_size(messages):
+    max_size = 0
+    for messagedef in messages:
+        total_size = get_param_total_size(messagedef['params'])
         if total_size > max_size:
             max_size = total_size
     return max_size
 
 
-def process_message(code_format, messagedef, output_directory):
-    total_size = 0
+def get_message_struct_format(params):
     struct_format = "<"
-    params = []
 
-    for param in messagedef['params']:
+    for param in params:
         if param['type'] in TYPES.keys():
-            total_size += TYPES[param['type']][0]
             struct_format += TYPES[param['type']][1]
         else:
-            for t in TYPES.keys():
-                if param['type'].startswith("%s[" % t):
-                    matches = re.search("%s\[([0-9]+)\]" % t, param['type'])
-                    count = int(matches.group(1))
-                    total_size += TYPES[t][0] * count
-                    struct_format += "%d%s" % (count, TYPES[t][2])
+            if param['type'].startswith('struct'):
+                mult = 1
+                if param['type'].index('[') > 0:
+                    matches = re.search("struct\[([0-9]+)\]", param['type'])
+                    mult = int(matches.group(1))
+                for i in range(mult):
+                    struct_format += "%ds" % get_param_total_size(param['params'])
+            else:
+                for t in TYPES.keys():
+                    if param['type'].startswith("%s[" % t):
+                        matches = re.search("%s\[([0-9]+)\]" % t, param['type'])
+                        count = int(matches.group(1))
+                        struct_format += "%d%s" % (count, TYPES[t][2])
+    return struct_format
+
+
+def process_message(code_format, messagedef, output_directory):
+    total_size = get_param_total_size(messagedef['params'])
+    struct_format = get_message_struct_format(messagedef['params'])
 
     output = []
 
     if code_format == "python":
-        output = []
-        output.append("import struct")
-        output.append("from .message import Message")
-        output.append("")
-        output.append("class %sMessage(Message):" % messagedef['name'])
-        output.append("    MESSAGE_ID = %d" % messagedef['id'])
-        output.append("    MESSAGE_SIZE = %d" % total_size)
-        output.append("    STRUCT_FORMAT = \"%s\"" % struct_format)
-        output.append("")
-        output.append("    def __init__(self, %s):" % ", ".join(["%s=None" % name for name in [p['name'] for p in messagedef['params']]]))
+        param_names = [p['name'] for p in messagedef['params']]
+        ctor_args = ", ".join(["%s=None" % name for name in param_names])
+        ctor_inits = "\n        ".join(["self.%s = %s" % (name, name) for name in param_names])
 
-        for p in messagedef['params']:
-            output.append("        self.%s = %s" % (p['name'], p['name']))
+        unpack_inits = []
+        pack_inits = []
+        struct_classes = []
+        param_index = 0
+        for param in messagedef['params']:
+            if param['type'].startswith('struct'):
+                p_names = [p['name'] for p in param['params']]
+                struct_name = "%sMessage%sParam" % (messagedef['name'], param['name'].title())
 
-        output.append("    ")
-        output.append("    def pack(self):")
-        output.append("        return struct.pack(self.STRUCT_FORMAT, %s)" % ", ".join(["self.%s" % name for name in [p['name'] for p in messagedef['params']]]))
-        output.append("")
-        output.append("")
+                struct_size = get_param_total_size(param['params'])
+                struct_ctor_params = ", ".join(["%s=None" % pn for pn in p_names])
+                struct_classes.append("class %sMessage%sParam(object):" % (messagedef['name'], param['name'].title()))
+                struct_classes.append("    STRUCT_FORMAT = \"%s\"" % get_message_struct_format(param['params']))
+                struct_classes.append("    STRUCT_SIZE = %d" % struct_size)
+                struct_classes.append("    ")
+                struct_classes.append("    def __init__(self, %s):" % struct_ctor_params)
+                for pn in p_names:
+                    struct_classes.append("        self.%s = %s" % (pn, pn))
+                struct_classes.append("    ")
+                struct_classes.append("    @classmethod")
+                struct_classes.append("    def unpack(cls, data):")
+                struct_classes.append("        data = struct.unpack(cls.STRUCT_FORMAT, data)")
+                struct_classes.append("        obj = cls()")
+
+                i = 0
+                for p in param['params']:
+                    struct_classes.append("        obj.%s = data[%d]" % (p['name'], i))
+                    i += 1
+
+                struct_classes.append("        ")
+                struct_classes.append("    def pack(self):")
+                struct_classes.append("        return struct.pack(self.STRUCT_FORMAT, %s)" % ", ".join(["self.%s" % pn for pn in p_names]))
+                struct_classes.append("")
+
+                if param['type'].index('[') > 0:
+                    matches = re.search("struct\[([0-9]+)\]", param['type'])
+                    count = int(matches.group(1))
+
+                    unpack_inits.append("obj.%s = []" % param['name'])
+                    unpack_inits.append("for i in range(%d):" % count)
+                    unpack_inits.append("    obj.%s.append(cls.%s.unpack(data[%d + i]))" % (param['name'], struct_name, param_index))
+
+                    pack_inits.append("for i in range(%d):" % count)
+                    pack_inits.append("    try:")
+                    pack_inits.append("        struct_data.append(self.%s[i].pack())" % param['name'])
+                    pack_inits.append("    except KeyError:")
+                    pack_inits.append("        struct_data.append(b'0' * cls.%s.STRUCT_SIZE)" % struct_name)
+
+                    param_index += count
+                else:
+                    unpack_inits.append("obj.%s = cls.%s.unpack(data[%d])" % (param['name'], struct_name, param_index))
+                    pack_inits.append("struct_data.append(self.%s.pack())" % param['name'])
+                    param_index += 1
+            else:
+                unpack_inits.append("obj.%s = data[%d]" % (param['name'], param_index))
+                pack_inits.append("struct_data.append(self.%s)" % param['name'])
+                param_index += 1
+
+        unpack_inits = "\n        ".join(unpack_inits)
+        pack_inits = "\n        ".join(pack_inits)
+        struct_classes = "\n    ".join(struct_classes)
+
+        MESSAGE_PY = MESSAGE_PY_TEMPLATE.format(**{
+            "id": messagedef['id'],
+            "name": messagedef['name'],
+            "ctor_args": ctor_args,
+            "ctor_inits": ctor_inits,
+            "pack_inits": pack_inits,
+            "unpack_inits": unpack_inits,
+            "struct_classes": struct_classes,
+            "total_size": total_size,
+            "struct_format": struct_format
+        })
 
         print("Generating %s..." % os.path.join(output_directory, "%s.py" % cc2us(messagedef['name'])))
         with open(os.path.join(output_directory, "%s.py" % cc2us(messagedef['name'])), "w") as fp:
-            fp.write("\n".join(output))
+            fp.write(MESSAGE_PY)
 
     elif code_format == "c":
         header_output = []
@@ -234,7 +350,19 @@ def process_message(code_format, messagedef, output_directory):
 
         struct_members = []
         for p in messagedef['params']:
-            struct_members.append("  %s;" % format_c_type(p['type'], p['name']))
+            if p['type'].startswith('struct'):
+                count = ""
+                if p['type'].index('[') > 0:
+                    matches = re.search("struct\[([0-9]+)\]", p['type'])
+                    count = "[%d]" % int(matches.group(1))
+                substruct = []
+                substruct.append("  struct {")
+                for sp in p['params']:
+                    substruct.append("    %s;" % format_c_type(sp['type'], sp['name']))
+                substruct.append("  } __packed %s%s;" % (p['name'], count))
+                struct_members.append("\n".join(substruct))
+            else:
+                struct_members.append("  %s;" % format_c_type(p['type'], p['name']))
         struct_members = "\n".join(struct_members)
 
         header_output = HEADER_TEMPLATE % {
