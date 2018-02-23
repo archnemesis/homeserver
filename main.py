@@ -94,8 +94,9 @@ class HomeServerTCPHandler(threading.Thread, socketserver.BaseRequestHandler):
                         logger.info("Received configuration request from %s" % message.hwid)
 
                         device = self.db.devices.find_one({"hwid": message.hwid.decode("ascii")})
+
                         if device is None:
-                            logger.info("Device is unregistered, creating new device entry")
+                            logger.info("Device is new and unregistered, creating new device entry")
 
                             self.db.devices.insert_one({
                                 "hwid": str(message.hwid),
@@ -107,6 +108,12 @@ class HomeServerTCPHandler(threading.Thread, socketserver.BaseRequestHandler):
                                 "updated": None
                             })
 
+                            logger.info("Sending RequestDeniedUnRegistered to device")
+                            response = messages.RequestErrorMessage()
+                            response.code = messages.ErrorCode.RequestDeniedUnRegistered
+                            response.message = b'unregistered'
+                            self.request.sendall(messages.pack_message(response))
+                        elif device['registered'] == False:
                             logger.info("Sending RequestDeniedUnRegistered to device")
                             response = messages.RequestErrorMessage()
                             response.code = messages.ErrorCode.RequestDeniedUnRegistered
