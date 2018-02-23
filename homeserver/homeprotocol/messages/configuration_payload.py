@@ -58,6 +58,6 @@ class ConfigurationPayloadMessage(Message):
         for i in range(4):
             try:
                 struct_data.append(self.controls[i].pack())
-            except KeyError:
-                struct_data.append(b'0' * cls.ConfigurationPayloadMessageControlsParam.STRUCT_SIZE)
+            except (TypeError, ValueError, KeyError):
+                struct_data.append(b'0' * self.ConfigurationPayloadMessageControlsParam.STRUCT_SIZE)
         return struct.pack(self.STRUCT_FORMAT, *struct_data)

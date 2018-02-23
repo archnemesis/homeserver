@@ -1,4 +1,12 @@
 {
+  "header": {
+    "params": [
+      {
+        "name": "hwid",
+        "type": "char[6]"
+      }
+    ]
+  },
   "enums": [
     {
       "name": "ErrorCode",

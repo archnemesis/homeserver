@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import socketserver
 import socket
 import threading
@@ -7,6 +8,7 @@ import logging
 import queue
 import time
 import cmd
+import pymongo
 from homeserver.homeprotocol import messages
 from homeserver.homeprotocol.parser import Parser
 
@@ -21,17 +23,17 @@ logger.addHandler(ch)
 
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, db, *args, **kwargs):
         self._threads = []
+        self.db = db
+        super().__init__(*args, **kwargs)
 
     def broadcast_message(self, message):
         for thread in self._threads:
             thread.send_message(message)
 
     def process_request(self, request, client_address):
-        t = threading.Thread(target=self.process_request_thread,
-                             args=(request, client_address))
+        t = HomeServerTCPHandler(self.db, request, client_address)
         t.daemon = self.daemon_threads
         t.start()
         self._threads.append(t)
@@ -43,12 +45,18 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
         super().server_close()
 
 
-class HomeServerTCPHandler(socketserver.BaseRequestHandler):
-    def __init__(self, *args, **kwargs):
+class HomeServerTCPHandler(threading.Thread, socketserver.BaseRequestHandler):
+    def __init__(self, db, request, client_address, *args, **kwargs):
+        self.db = db
         self.parser = Parser()
+        self.request = request
+        self.client_address = client_address
         self.message_queue = queue.Queue()
         self.running = True
         super().__init__(*args, **kwargs)
+
+    def run(self):
+        self.handle()
 
     def send_message(self, message):
         self.message_queue.put(message)
@@ -84,6 +92,28 @@ class HomeServerTCPHandler(socketserver.BaseRequestHandler):
                 for message in self.parser.process_bytes(data):
                     if type(message) is messages.RequestConfigurationMessage:
                         logger.info("Received configuration request from %s" % message.hwid)
+
+                        device = self.db.devices.find_one({"hwid": message.hwid.decode("ascii")})
+                        if device is None:
+                            logger.info("Device is unregistered, creating new device entry")
+
+                            self.db.devices.insert_one({
+                                "hwid": str(message.hwid),
+                                "name": "Unregistered Device %s" % message.hwid.decide("ascii"),
+                                "description": "Unregistered device detected",
+                                "device_type": 0,
+                                "registered": False,
+                                "created": datetime.datetime.utcnow(),
+                                "updated": None
+                            })
+
+                            logger.info("Sending RequestDeniedUnRegistered to device")
+                            response = messages.RequestErrorMessage()
+                            response.code = messages.ErrorCode.RequestDeniedUnRegistered
+                            response.message = b'unregistered'
+                            self.request.sendall(messages.pack_message(response))
+                        else:
+                            logger.info("Found device")
 
                         logger.info("Sending configuration payload to %s" % message.hwid)
                         payload = messages.ConfigurationPayloadMessage()
@@ -125,8 +155,12 @@ if __name__ == "__main__":
     address = args.address
     port = args.port
 
+    logger.info("Connecting to MongoDB...")
+    mongo = pymongo.MongoClient('mongodb', 27017)
+    db = mongo['homeserver_dev']
+
     logger.info("Starting server on %s:%d..." % (address, port))
-    server = ThreadedTCPServer((address, port), HomeServerTCPHandler)
+    server = ThreadedTCPServer(db, (address, port), HomeServerTCPHandler)
     server_thread = threading.Thread(target=server.serve_forever)
     server_thread.daemon = True
     server_thread.start()
