@@ -5,6 +5,7 @@ from flask import render_template, request, flash, redirect
 from flask_pymongo import PyMongo
 
 from .forms import UserCreateForm
+from .forms import DeviceCreateForm
 
 app = Flask(__name__)
 app.config.from_envvar("HOMECONSOLE_SETTINGS")
@@ -27,10 +28,15 @@ def device_create():
             "name": request.form['name'],
             "description": request.form['description'],
             "device_type": request.form['device_type'],
-            "registered": True,
+            "active": request.form['active'],
             "created": datetime.datetime.utcnow(),
             "updated": None
         })
+        flash("Device {} was created successfully.".format(request.form['name']))
+        return redirect(url_for('device_list'))
+    else:
+        form = DeviceCreateForm()
+        return render_template("device_create.html", form=form)
 
 @app.route('/users')
 def user_list():

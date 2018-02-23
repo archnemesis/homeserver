@@ -103,7 +103,7 @@ class HomeServerTCPHandler(threading.Thread, socketserver.BaseRequestHandler):
                                 "name": "Unregistered Device %s" % message.hwid.decide("ascii"),
                                 "description": "Unregistered device detected",
                                 "device_type": 0,
-                                "registered": False,
+                                "active": False,
                                 "created": datetime.datetime.utcnow(),
                                 "updated": None
                             })
@@ -113,7 +113,7 @@ class HomeServerTCPHandler(threading.Thread, socketserver.BaseRequestHandler):
                             response.code = messages.ErrorCode.RequestDeniedUnRegistered
                             response.message = b'unregistered'
                             self.request.sendall(messages.pack_message(response))
-                        elif device['registered'] == False:
+                        elif device['active'] == False:
                             logger.info("Sending RequestDeniedUnRegistered to device")
                             response = messages.RequestErrorMessage()
                             response.code = messages.ErrorCode.RequestDeniedUnRegistered

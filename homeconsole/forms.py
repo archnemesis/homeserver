@@ -27,3 +27,5 @@ class DeviceCreateForm(FlaskForm):
     description = fields.StringField("Description")
     hwid = fields.StringField("Hardware ID")
     device_type = fields.SelectField("Device Type", choices=DEVICE_TYPE_CHOICES)
+    active = fields.BooleanField("Active")
+    
