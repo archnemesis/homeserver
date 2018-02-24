@@ -87,7 +87,14 @@ void %(name)s_send(%(name)s_message_t *%(name)s);
 
 SOURCE_TEMPLATE = """
 #include <string.h>
+#include "FreeRTOS.h"
 #include "%(name)s.h"
+
+message_t *%(name)s_encode_alloc(%(name)s_message_t *%(name)s) {
+    message_t *message = pvPortMalloc(MESSAGE_HEADER_SIZE + MESSAGE_%(name_uc)s_LENGTH);
+    %(name)s_encode(message, %(name)s);
+    return message;
+}
 
 void %(name)s_encode(message_t *message, %(name)s_message_t *%(name)s) {
     message->id = %(id)d;
