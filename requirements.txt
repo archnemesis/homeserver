@@ -1,3 +1,4 @@
 flask
 flask-pymongo
 flask_wtf
+flask-mongoengine

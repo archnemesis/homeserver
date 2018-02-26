@@ -11,8 +11,8 @@ class ConfigurationPayloadMessage(Message):
         STRUCT_FORMAT = "<HII16s16s"
         STRUCT_SIZE = 42
         
-        def __init__(self, type=None, min=None, max=None, name=None, description=None):
-            self.type = type
+        def __init__(self, controltype=None, min=None, max=None, name=None, description=None):
+            self.controltype = controltype
             self.min = min
             self.max = max
             self.name = name
@@ -22,14 +22,14 @@ class ConfigurationPayloadMessage(Message):
         def unpack(cls, data):
             data = struct.unpack(cls.STRUCT_FORMAT, data)
             obj = cls()
-            obj.type = data[0]
+            obj.controltype = data[0]
             obj.min = data[1]
             obj.max = data[2]
             obj.name = data[3]
             obj.description = data[4]
             
         def pack(self):
-            return struct.pack(self.STRUCT_FORMAT, self.type, self.min, self.max, self.name, self.description)
+            return struct.pack(self.STRUCT_FORMAT, self.controltype, self.min, self.max, self.name, self.description)
     
 
     def __init__(self, display_name=None, description=None, theme=None, controls=None):
@@ -58,6 +58,6 @@ class ConfigurationPayloadMessage(Message):
         for i in range(4):
             try:
                 struct_data.append(self.controls[i].pack())
-            except (TypeError, ValueError, KeyError):
+            except IndexError:
                 struct_data.append(b'0' * self.ConfigurationPayloadMessageControlsParam.STRUCT_SIZE)
         return struct.pack(self.STRUCT_FORMAT, *struct_data)

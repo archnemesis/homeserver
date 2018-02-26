@@ -1,34 +1,32 @@
 {% extends "layout.html" %}
 {% block body %}
 
-<div class="container">
-  <div class="row">
-    <div class="col-lg">
+<h2 class="display-4">Device Management</h2>
 
-      <h2 class="display-4">Device Management</h2>
+<a href="{{ url_for('device_create') }}">New Device</a>
 
-      <a href="{{ url_for('device_create') }}">New Device</a>
-
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Hardware ID</th>
-            <th>Name</th>
-            <th>Description</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for device in devices %}
-          <tr>
-            <td>{{ device.hwid }}</td>
-            <td>{{ device.name }}</td>
-            <td>{{ device.description }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
+<table class="table">
+  <thead>
+    <tr>
+      <th>Hardware ID</th>
+      <th>Name</th>
+      <th>Description</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for device in devices %}
+    <tr>
+      <td>{{ device.hwid }}</td>
+      <td>{{ device.name }}</td>
+      <td>{{ device.description }}</td>
+      <td>
+        <a class="btn btn-primary btn-sm" href="{{ url_for('device_configure', device_id=device.pk) }}" role="button">Edit</a>
+        <a class="btn btn-danger btn-sm" href="{{ url_for('device_remove', device_id=device.pk) }}" role="button">Delete</a>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
 
 {% endblock %}

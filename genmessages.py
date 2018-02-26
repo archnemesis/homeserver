@@ -318,7 +318,7 @@ def process_message(code_format, messagedef, output_directory):
                     pack_inits.append("for i in range(%d):" % count)
                     pack_inits.append("    try:")
                     pack_inits.append("        struct_data.append(self.%s[i].pack())" % param['name'])
-                    pack_inits.append("    except (TypeError, ValueError, KeyError):")
+                    pack_inits.append("    except IndexError:")
                     pack_inits.append("        struct_data.append(b'0' * self.%s.STRUCT_SIZE)" % struct_name)
 
                     param_index += count

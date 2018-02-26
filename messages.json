@@ -143,7 +143,7 @@
           "type": "struct[4]",
           "params": [
             {
-              "name": "type",
+              "name": "controltype",
               "type": "uint16_t"
             },
             {
