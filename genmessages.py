@@ -25,6 +25,12 @@ MESSAGE_H_TEMPLATE = """
 #include <stdint.h>
 #include "FreeRTOS.h"
 
+#if defined ( __GNUC__ ) && !defined (__CC_ARM) /* GNU Compiler */
+  #ifndef __weak
+    #define __weak   __attribute__((weak))
+  #endif /* __weak */
+#endif /* __GNUC__ */
+
 %(enums)s
 
 #define MESSAGE_HEADER_SIZE %(message_header_size)d
