@@ -44,7 +44,7 @@ class Parser(object):
                 if self._body_bytes_remaining == 0:
                     message_cls = Message.cls_for_message_id(self._pending_packet_header.message_id)
                     message_obj = message_cls.unpack(self._buffer)
-                    messages_out.append(message_obj)
+                    messages_out.append((self._pending_packet_header, message_obj))
 
                     self._reset_state()
                     self.packet_count += 1

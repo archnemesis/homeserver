@@ -13,6 +13,14 @@
   },
   "enums": [
     {
+      "name": "CommandCode",
+      "description": "Command codes",
+      "values": [
+        ["RequestConfigurationCommand", 1],
+        ["PingCommand", 2]
+      ]
+    },
+    {
       "name": "ErrorCode",
       "description": "Errors returned by various reasons.",
       "values": [
@@ -55,20 +63,12 @@
   "messages": [
     {
       "id": 1,
-      "name": "RequestConfiguration",
-      "description": "Sent to request configuration from server.",
+      "name": "Command",
+      "description": "Commands that don't require arguments.",
       "params": [
         {
-          "name": "hwid",
-          "type": "char[6]"
-        },
-        {
-          "name": "ipaddr",
-          "type": "uint32_t"
-        },
-        {
-          "name": "name",
-          "type": "char[16]"
+          "name": "command_id",
+          "type": "uint16_t"
         }
       ]
     },
@@ -93,10 +93,6 @@
       "description": "Sent when a client is requesting communications from the server.",
       "params": [
         {
-          "name": "hwid_caller",
-          "type": "char[6]"
-        },
-        {
           "name": "hwid_callee",
           "type": "char[6]"
         }
@@ -108,8 +104,8 @@
       "description": "Sent when a client accepts communications from the server.",
       "params": [
         {
-          "name": "hwid_callee",
-          "type": "char[6]"
+          "name": "remote_addr",
+          "type": "uint32_t"
         },
         {
           "name": "remote_port",
@@ -170,6 +166,21 @@
         {
           "name": "timestamp",
           "type": "uint32_t"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "IntercomChannelCreate",
+      "description": "Instruct an endpoint to open an intercom channel.",
+      "params": [
+        {
+          "name": "port",
+          "type": "uint16_t"
+        },
+        {
+          "name": "caller",
+          "type": "char[6]"
         }
       ]
     }

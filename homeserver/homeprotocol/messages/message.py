@@ -18,6 +18,9 @@ def pack_message(message):
     return data
 
 
+class CommandCode(object):
+    RequestConfigurationCommand = 1
+    PingCommand = 2
 class ErrorCode(object):
     RequestError = 1
     RequestDeniedPermissions = 2

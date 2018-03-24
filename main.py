@@ -109,54 +109,55 @@ class HomeServerTCPHandler(threading.Thread, socketserver.BaseRequestHandler):
                 if len(data) == 0:
                     logger.info("Connection closed")
                     return
-                for message in self.parser.process_bytes(data):
-                    if type(message) is messages.RequestConfigurationMessage:
-                        hwid = "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}".format(*message.hwid[:])
-                        logger.info("Received configuration request from %s" % hwid)
+                for header, message in self.parser.process_bytes(data):
+                    if type(message) is messages.CommandMessage:
+                        if message.command_id == messages.CommandCode.RequestConfigurationCommand:
+                            hwid = "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}".format(*header.hwid[:])
+                            logger.info("Received configuration request from %s" % hwid)
 
-                        device = self.db.device.find_one({"hwid": hwid})
+                            device = self.db.device.find_one({"hwid": hwid})
 
-                        if device is None:
-                            logger.info("Device is new and unregistered, creating new device entry")
+                            if device is None:
+                                logger.info("Device is new and unregistered, creating new device entry")
 
-                            self.db.device.insert_one({
-                                "hwid": hwid,
-                                "name": "%s" % message.name.decode("ascii").strip(),
-                                "description": "Unregistered device detected",
-                                "device_type": 0,
-                                "active": False,
-                                "created": datetime.datetime.utcnow(),
-                                "updated": None
-                            })
+                                self.db.device.insert_one({
+                                    "hwid": hwid,
+                                    "name": "New Device",
+                                    "description": "Unregistered device detected",
+                                    "device_type": 0,
+                                    "active": False,
+                                    "created": datetime.datetime.utcnow(),
+                                    "updated": None
+                                })
 
-                            logger.info("Sending RequestDeniedUnRegistered to device")
-                            response = messages.RequestErrorMessage()
-                            response.code = messages.ErrorCode.RequestDeniedUnRegistered
-                            response.message = b'unregistered'
-                            self.request.sendall(messages.pack_message(response))
-                        elif device['active'] == False:
-                            logger.info("Sending RequestDeniedUnRegistered to device")
-                            response = messages.RequestErrorMessage()
-                            response.code = messages.ErrorCode.RequestDeniedUnRegistered
-                            response.message = b'unregistered'
-                            self.request.sendall(messages.pack_message(response))
-                        else:
-                            logger.info("Sending configuration payload to %s" % hwid)
-                            payload = messages.ConfigurationPayloadMessage()
-                            payload.display_name = device['name'].encode('ascii')
-                            payload.description = device['description'].encode('ascii')
-                            payload.theme = messages.DeviceUITheme.Default
-                            payload.controls = []
-                            payload.controls.append(
-                                messages.ConfigurationPayloadMessage.ConfigurationPayloadMessageControlsParam(
-                                    controltype=messages.ControlType.OnOff,
-                                    min=0,
-                                    max=0,
-                                    name="Test On/Off".encode('ascii'),
-                                    description="Test On/Off".encode('ascii')
+                                logger.info("Sending RequestDeniedUnRegistered to device")
+                                response = messages.RequestErrorMessage()
+                                response.code = messages.ErrorCode.RequestDeniedUnRegistered
+                                response.message = b'unregistered'
+                                self.request.sendall(messages.pack_message(response))
+                            elif device['active'] == False:
+                                logger.info("Sending RequestDeniedUnRegistered to device")
+                                response = messages.RequestErrorMessage()
+                                response.code = messages.ErrorCode.RequestDeniedUnRegistered
+                                response.message = b'unregistered'
+                                self.request.sendall(messages.pack_message(response))
+                            else:
+                                logger.info("Sending configuration payload to %s" % hwid)
+                                payload = messages.ConfigurationPayloadMessage()
+                                payload.display_name = device['name'].encode('ascii')
+                                payload.description = device['description'].encode('ascii')
+                                payload.theme = messages.DeviceUITheme.Default
+                                payload.controls = []
+                                payload.controls.append(
+                                    messages.ConfigurationPayloadMessage.ConfigurationPayloadMessageControlsParam(
+                                        controltype=messages.ControlType.OnOff,
+                                        min=0,
+                                        max=0,
+                                        name="Test On/Off".encode('ascii'),
+                                        description="Test On/Off".encode('ascii')
+                                    )
                                 )
-                            )
-                            self.request.sendall(messages.pack_message(payload))
+                                self.request.sendall(messages.pack_message(payload))
                     elif type(message) is messages.PingMessage:
                         logger.info("Received ping from client")
                         timeout_counter = 0
