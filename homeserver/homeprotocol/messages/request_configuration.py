@@ -9,7 +9,7 @@ class RequestConfigurationMessage(Message):
 
     
 
-    def __init__(self, hwid=None, ipaddr=None, name=None):
+    def __init__(self, hwid=0, ipaddr=0, name=0):
         self.hwid = hwid
         self.ipaddr = ipaddr
         self.name = name

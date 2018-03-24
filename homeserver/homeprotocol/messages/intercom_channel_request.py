@@ -9,7 +9,7 @@ class IntercomChannelRequestMessage(Message):
 
     
 
-    def __init__(self, hwid_caller=None, hwid_callee=None):
+    def __init__(self, hwid_caller=0, hwid_callee=0):
         self.hwid_caller = hwid_caller
         self.hwid_callee = hwid_callee
 

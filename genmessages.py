@@ -9,13 +9,13 @@ import math
 
 
 TYPES = {
-    'uint32_t':     (4, 'I', 'I'),
-    'int32_t':      (4, 'i', 'i'),
-    'uint16_t':     (2, 'H', 'H'),
-    'int16_t':      (2, 'h', 'h'),
-    'float':        (4, 'f', 'f'),
-    'double':       (8, 'd', 'd'),
-    'char':         (1, 'c', 's'),
+    'uint32_t':     (4, 'I', 'I', "0"),
+    'int32_t':      (4, 'i', 'i', "0"),
+    'uint16_t':     (2, 'H', 'H', "0"),
+    'int16_t':      (2, 'h', 'h', "0"),
+    'float':        (4, 'f', 'f', "0"),
+    'double':       (8, 'd', 'd', "0"),
+    'char':         (1, 'c', 's', "bytes()"),
 }
 
 MESSAGE_H_TEMPLATE = """
@@ -23,6 +23,7 @@ MESSAGE_H_TEMPLATE = """
 #define _MESSAGES_H_
 
 #include <stdint.h>
+#include "FreeRTOS.h"
 
 %(enums)s
 
@@ -39,7 +40,14 @@ struct message {
 
 typedef struct message message_t;
 
+void message_send(message_t *message);
+
 %(includes)s
+
+__weak void message_send(message_t *message)
+{
+    vPortFree(message);
+}
 
 #endif
 """
@@ -108,7 +116,8 @@ void %(name)s_decode(message_t *message, %(name)s_message_t *%(name)s) {
 }
 
 void %(name)s_send(%(name)s_message_t *%(name)s) {
-    (void)%(name)s;
+    message_t *message = %(name)s_encode_alloc(%(name)s);
+    message_send(message);
 }
 """
 
@@ -293,7 +302,7 @@ def process_message(code_format, messagedef, output_directory):
 
     if code_format == "python":
         param_names = [p['name'] for p in messagedef['params']]
-        ctor_args = ", ".join(["%s=None" % name for name in param_names])
+        ctor_args = ", ".join(["%s=0" % name for name in param_names])
         ctor_inits = "\n        ".join(["self.%s = %s" % (name, name) for name in param_names])
 
         unpack_inits = []
@@ -306,7 +315,7 @@ def process_message(code_format, messagedef, output_directory):
                 struct_name = "%sMessage%sParam" % (messagedef['name'], param['name'].title())
 
                 struct_size = get_param_total_size(param['params'])
-                struct_ctor_params = ", ".join(["%s=None" % pn for pn in p_names])
+                struct_ctor_params = ", ".join(["%s=0" % pn for pn in p_names])
                 struct_classes.append("class %sMessage%sParam(object):" % (messagedef['name'], param['name'].title()))
                 struct_classes.append("    STRUCT_FORMAT = \"%s\"" % get_message_struct_format(param['params']))
                 struct_classes.append("    STRUCT_SIZE = %d" % struct_size)
@@ -435,10 +444,18 @@ def process_format_python(message_defs, output_directory):
             header_packs = []
             header_args = []
             param_index = 2
+
             for param in message_defs['header']['params']:
+                plain_type = param['type']
+                try:
+                    if plain_type.index('[') > 0:
+                        plain_type = plain_type[0:plain_type.index('[')]
+                except ValueError:
+                    pass
+
                 header_inits.append("        self.%s = %s" % (param['name'], param['name']))
                 header_unpacks.append("        obj.%s = msg_data[%d]" % (param['name'], param_index))
-                header_args.append("%s=None" % param['name'])
+                header_args.append("%s=%s" % (param['name'], TYPES[plain_type][3]))
                 header_packs.append("self.%s" % param['name'])
                 param_index += 1
             header_inits = "\n".join(header_inits)

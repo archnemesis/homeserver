@@ -9,7 +9,7 @@ class RequestErrorMessage(Message):
 
     
 
-    def __init__(self, code=None, message=None):
+    def __init__(self, code=0, message=0):
         self.code = code
         self.message = message
 

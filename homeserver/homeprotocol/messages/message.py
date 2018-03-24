@@ -54,7 +54,7 @@ class MessageHeader(Message):
     MESSAGE_SIZE = 13
     STRUCT_FORMAT = "<BH6sI"
 
-    def __init__(self, message_id=None, message_size=None, hwid=None, timestamp=None):
+    def __init__(self, message_id=None, message_size=None, hwid=bytes(), timestamp=0):
         self.message_id = message_id
         self.message_size = message_size
         self.hwid = hwid

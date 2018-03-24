@@ -9,7 +9,7 @@ class IntercomChannelAcceptMessage(Message):
 
     
 
-    def __init__(self, hwid_callee=None, remote_port=None):
+    def __init__(self, hwid_callee=0, remote_port=0):
         self.hwid_callee = hwid_callee
         self.remote_port = remote_port
 

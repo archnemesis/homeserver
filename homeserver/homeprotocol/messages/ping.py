@@ -9,7 +9,7 @@ class PingMessage(Message):
 
     
 
-    def __init__(self, timestamp=None):
+    def __init__(self, timestamp=0):
         self.timestamp = timestamp
 
     @classmethod

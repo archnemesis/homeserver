@@ -11,7 +11,7 @@ class ConfigurationPayloadMessage(Message):
         STRUCT_FORMAT = "<HII16s16s"
         STRUCT_SIZE = 42
         
-        def __init__(self, controltype=None, min=None, max=None, name=None, description=None):
+        def __init__(self, controltype=0, min=0, max=0, name=0, description=0):
             self.controltype = controltype
             self.min = min
             self.max = max
@@ -32,7 +32,7 @@ class ConfigurationPayloadMessage(Message):
             return struct.pack(self.STRUCT_FORMAT, self.controltype, self.min, self.max, self.name, self.description)
     
 
-    def __init__(self, display_name=None, description=None, theme=None, controls=None):
+    def __init__(self, display_name=0, description=0, theme=0, controls=0):
         self.display_name = display_name
         self.description = description
         self.theme = theme
