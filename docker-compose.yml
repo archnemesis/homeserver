@@ -19,7 +19,7 @@ services:
       - mongodb
   homeserver:
     build: .
-    command: python main.py 0.0.0.0 2005
+    command: python main.py --ssl --ssl-cert=certs/homeserver.crt.pem --ssl-key=certs/homeserver.key.pem --address=0.0.0.0 --port=2005
     volumes:
       - .:/code
     ports:

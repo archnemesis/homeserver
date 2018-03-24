@@ -9,6 +9,7 @@ import queue
 import time
 import cmd
 import pymongo
+import ssl
 from homeserver.homeprotocol import messages
 from homeserver.homeprotocol.parser import Parser
 
@@ -45,6 +46,23 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
         super().server_close()
 
 
+class ThreadedSSLTCPServer(ThreadedTCPServer):
+    def __init__(self, cert, key, ssl_version=ssl.PROTOCOL_TLSv1, *args, **kwargs):
+        self.cert = cert
+        self.key = key
+        self.ssl_version = ssl_version
+        super().__init__(*args, **kwargs)
+
+    def get_request(self):
+        newsocket, fromaddr = self.socket.accept()
+        connstream = ssl.wrap_socket(newsocket,
+                                     server_side=True,
+                                     certfile=self.cert,
+                                     keyfile=self.key,
+                                     ssl_version=self.ssl_version)
+        return connstream, fromaddr
+
+
 class HomeServerTCPHandler(threading.Thread, socketserver.BaseRequestHandler):
     def __init__(self, db, request, client_address, *args, **kwargs):
         self.db = db
@@ -67,6 +85,8 @@ class HomeServerTCPHandler(threading.Thread, socketserver.BaseRequestHandler):
     def handle(self):
         self.request.settimeout(1)
         timeout_counter = 0
+
+        print("Connection from %s:%d" % self.client_address)
 
         while self.running:
             try:
@@ -163,8 +183,11 @@ class HomeConsoleShell(cmd.Cmd):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("address", help="Address to listen for connections on")
-    parser.add_argument("port", type=int, default=2005, help="Service port number")
+    parser.add_argument("--address", default="127.0.0.1", help="Address to listen for connections on")
+    parser.add_argument("--port", type=int, default=2005, help="Service port number")
+    parser.add_argument("--ssl", action="store_true", dest="ssl", help="Enable SSL encryption")
+    parser.add_argument("--ssl-cert", dest="ssl_cert", help="Path to SSL certificate")
+    parser.add_argument("--ssl-key", dest="ssl_key", help="Path to SSL certificate private key")
     args = parser.parse_args()
 
     address = args.address
@@ -174,8 +197,13 @@ if __name__ == "__main__":
     mongo = pymongo.MongoClient('mongodb', 27017)
     db = mongo['homeserver_dev']
 
-    logger.info("Starting server on %s:%d..." % (address, port))
-    server = ThreadedTCPServer(db, (address, port), HomeServerTCPHandler)
+    if args.ssl:
+        logger.info("Starting SSL server on %s:%d..." % (address, port))
+        server = ThreadedSSLTCPServer(args.ssl_cert, args.ssl_key, ssl.PROTOCOL_TLSv1_2, db, (address, port), HomeServerTCPHandler)
+    else:
+        logger.info("Starting server on %s:%d..." % (address, port))
+        server = ThreadedTCPServer(db, (address, port), HomeServerTCPHandler)
+
     server_thread = threading.Thread(target=server.serve_forever)
     server_thread.daemon = True
     server_thread.start()

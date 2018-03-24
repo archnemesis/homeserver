@@ -1,15 +1,13 @@
 import struct
-from .messages.message import MESSAGE_MAX_DATA_SIZE
+from .messages.message import MESSAGE_HEADER_SIZE, MESSAGE_MAX_DATA_SIZE
 from .messages import Message
 
 
 class Parser(object):
     PACKET_HEADER_MARKER = b'AE'
     PACKET_FOOTER_MARKER = b'EA'
-    PACKET_HEADER_SIZE = 3
+    PACKET_HEADER_SIZE = MESSAGE_HEADER_SIZE
 
-    FORMAT_HEADER = "<BH"
-    FORMAT_REQUEST_CONFIG = "<"
 
     def __init__(self):
         self._buffer = bytearray()

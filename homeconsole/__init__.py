@@ -38,7 +38,7 @@ def device_create():
         flash("Device {} was created successfully.".format(request.form['name']), 'info')
         return redirect(url_for('device_list'))
     else:
-        form = DeviceCreateForm()
+        form = DeviceForm()
         return render_template("device_form.html", form=form)
 
 @app.route('/devices/<string:device_id>/configure', methods=['GET', 'POST'])
@@ -56,7 +56,7 @@ def device_configure(device_id):
             device.updated = datetime.datetime.utcnow()
             device.save()
             flash("Device updated successfully.", 'info')
-            return redirect('device_list')
+            return redirect(url_for('device_list'))
         else:
             for field, errors in form.errors.items():
                 for error in errors:

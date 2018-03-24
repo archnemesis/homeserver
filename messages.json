@@ -4,6 +4,10 @@
       {
         "name": "hwid",
         "type": "char[6]"
+      },
+      {
+        "name": "timestamp",
+        "type": "uint32_t"
       }
     ]
   },
@@ -93,12 +97,8 @@
           "type": "char[6]"
         },
         {
-          "name": "remote_channel_ip",
-          "type": "uint32_t"
-        },
-        {
-          "name": "remote_channel_port",
-          "type": "uint16_t"
+          "name": "hwid_callee",
+          "type": "char[6]"
         }
       ]
     },
@@ -108,15 +108,11 @@
       "description": "Sent when a client accepts communications from the server.",
       "params": [
         {
-          "name": "hwid_caller",
+          "name": "hwid_callee",
           "type": "char[6]"
         },
         {
-          "name": "local_channel_ip",
-          "type": "uint32_t"
-        },
-        {
-          "name": "local_channel_port",
+          "name": "remote_port",
           "type": "uint16_t"
         }
       ]

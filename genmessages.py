@@ -26,13 +26,14 @@ MESSAGE_H_TEMPLATE = """
 
 %(enums)s
 
-#define MESSAGE_HEADER_SIZE 3
+#define MESSAGE_HEADER_SIZE %(message_header_size)d
 #define MESSAGE_MAX_DATA_SIZE %(max_size)d
 #define MESSAGE_MAX_TOTAL_SIZE (MESSAGE_HEADER_SIZE + MESSAGE_MAX_DATA_SIZE)
 
 struct message {
     uint8_t id;
     uint16_t size;
+%(message_params)s
     uint32_t data[%(max_size_int)d];
 } __packed;
 
@@ -103,7 +104,7 @@ void %(name)s_encode(message_t *message, %(name)s_message_t *%(name)s) {
 }
 
 void %(name)s_decode(message_t *message, %(name)s_message_t *%(name)s) {
-    memcpy((void *)%(name)s, (void *)message, sizeof(%(name)s_message_t));
+    memcpy((void *)%(name)s, (void *)message->data, sizeof(%(name)s_message_t));
 }
 
 void %(name)s_send(%(name)s_message_t *%(name)s) {
@@ -142,7 +143,7 @@ MESSAGE_INIT_TEMPLATE = """
 import struct
 
 
-MESSAGE_HEADER_SIZE = 3
+MESSAGE_HEADER_SIZE = {header_size}
 MESSAGE_MAX_DATA_SIZE = {max_size}
 MESSAGE_MAX_TOTAL_SIZE = MESSAGE_HEADER_SIZE + MESSAGE_MAX_DATA_SIZE
 
@@ -154,7 +155,7 @@ def pack_message(message):
     header_data = header.pack()
     message_data = message.pack()
 
-    data = struct.pack('<cc3s%ds' % message.MESSAGE_SIZE, b'A', b'E', header_data, message_data)
+    data = struct.pack('<cc%ds%ds' % (header.MESSAGE_SIZE, message.MESSAGE_SIZE), b'A', b'E', header_data, message_data)
     return data
 
 
@@ -173,12 +174,13 @@ class Message(object):
 
 class MessageHeader(Message):
     MESSAGE_ID = 0
-    MESSAGE_SIZE = 3
-    STRUCT_FORMAT = "<BH"
+    MESSAGE_SIZE = {header_size}
+    STRUCT_FORMAT = "<BH{header_struct_format}"
 
-    def __init__(self, message_id=None, message_size=None):
+    def __init__(self, message_id=None, message_size=None{header_args}):
         self.message_id = message_id
         self.message_size = message_size
+{header_inits}
 
     def __str__(self):
         return "<MessageHeader(%d, %d)>" % (self.message_id, self.message_size)
@@ -189,10 +191,11 @@ class MessageHeader(Message):
         obj = cls()
         obj.message_id = msg_data[0]
         obj.message_size = msg_data[1]
+{header_unpacks}
         return obj
 
     def pack(self):
-        return struct.pack(self.STRUCT_FORMAT, self.message_id, self.message_size)
+        return struct.pack(self.STRUCT_FORMAT, self.message_id, self.message_size{header_packs})
 """
 
 def cc2us(name):
@@ -260,6 +263,26 @@ def get_message_struct_format(params):
                         count = int(matches.group(1))
                         struct_format += "%d%s" % (count, TYPES[t][2])
     return struct_format
+
+
+def process_struct_params(params, padding=2):
+    struct_members = []
+    for p in params:
+        if p['type'].startswith('struct'):
+            count = ""
+            if p['type'].index('[') > 0:
+                matches = re.search("struct\[([0-9]+)\]", p['type'])
+                count = "[%d]" % int(matches.group(1))
+            substruct = []
+            substruct.append("  struct {")
+            for sp in p['params']:
+                substruct.append("%s%s;" % (" " * (padding + 2), format_c_type(sp['type'], sp['name'])))
+            substruct.append("  } __packed %s%s;" % (p['name'], count))
+            struct_members.append("\n".join(substruct))
+        else:
+            struct_members.append("%s%s;" % (" " * padding, format_c_type(p['type'], p['name'])))
+    struct_members = "\n".join(struct_members)
+    return struct_members
 
 
 def process_message(code_format, messagedef, output_directory):
@@ -354,23 +377,7 @@ def process_message(code_format, messagedef, output_directory):
     elif code_format == "c":
         header_output = []
         source_output = []
-
-        struct_members = []
-        for p in messagedef['params']:
-            if p['type'].startswith('struct'):
-                count = ""
-                if p['type'].index('[') > 0:
-                    matches = re.search("struct\[([0-9]+)\]", p['type'])
-                    count = "[%d]" % int(matches.group(1))
-                substruct = []
-                substruct.append("  struct {")
-                for sp in p['params']:
-                    substruct.append("    %s;" % format_c_type(sp['type'], sp['name']))
-                substruct.append("  } __packed %s%s;" % (p['name'], count))
-                struct_members.append("\n".join(substruct))
-            else:
-                struct_members.append("  %s;" % format_c_type(p['type'], p['name']))
-        struct_members = "\n".join(struct_members)
+        struct_members = process_struct_params(messagedef['params'], padding=2)
 
         header_output = HEADER_TEMPLATE % {
             "name": cc2us(messagedef['name']),
@@ -415,6 +422,32 @@ def process_format_python(message_defs, output_directory):
             fp.write("from .message import %s\n" % name)
         fp.write("\n")
 
+    header_size = 0
+    header_inits = ""
+    header_unpacks = ""
+    header_packs = ""
+    header_args = ""
+    param_index = 2
+    if 'header' in message_defs:
+        if 'params' in message_defs['header']:
+            header_inits = []
+            header_unpacks = []
+            header_packs = []
+            header_args = []
+            param_index = 2
+            for param in message_defs['header']['params']:
+                header_inits.append("        self.%s = %s" % (param['name'], param['name']))
+                header_unpacks.append("        obj.%s = msg_data[%d]" % (param['name'], param_index))
+                header_args.append("%s=None" % param['name'])
+                header_packs.append("self.%s" % param['name'])
+                param_index += 1
+            header_inits = "\n".join(header_inits)
+            header_unpacks = "\n".join(header_unpacks)
+            header_packs = ", " + ", ".join(header_packs)
+            header_args = ", " + ", ".join(header_args)
+            header_size  = 3 + get_param_total_size(message_defs['header']['params'])
+            header_format = get_message_struct_format(message_defs['header']['params'])[1:]
+
     print("Generating %s..." % os.path.join(output_directory, "message.py"))
     with open(os.path.join(output_directory, "message.py"), "w") as fp:
         enum_output = []
@@ -426,7 +459,13 @@ def process_format_python(message_defs, output_directory):
         fp.write(MESSAGE_INIT_TEMPLATE.format(
             enums="\n".join(enum_output),
             max_size_int=math.ceil(get_max_message_size(message_defs['messages']) / 4.0),
-            max_size=get_max_message_size(message_defs['messages'])))
+            max_size=get_max_message_size(message_defs['messages']),
+            header_size=header_size,
+            header_inits=header_inits,
+            header_packs=header_packs,
+            header_unpacks=header_unpacks,
+            header_args=header_args,
+            header_struct_format=header_format))
 
     for message in message_defs['messages']:
         process_message("python", message, output_directory)
@@ -452,12 +491,21 @@ def process_format_c(message_defs, output_directory):
             enums.append("} __attribute__ ((packed));")
             enums.append("")
 
+        params = ""
+        params_size = 0
+        if 'header' in message_defs:
+            if 'params' in message_defs['header']:
+                params = process_struct_params(message_defs['header']['params'], padding=4)
+                params_size = get_param_total_size(message_defs['header']['params'])
+
         fp.write("\n")
         fp.write(MESSAGE_H_TEMPLATE % {
             "includes": "\n".join(includes),
             "max_size_int": math.ceil(get_max_message_size(message_defs['messages']) / 4.0),
             "max_size": get_max_message_size(message_defs['messages']),
-            "enums": "\n".join(enums)
+            "enums": "\n".join(enums),
+            "message_params": params,
+            "message_header_size": 3 + params_size
         })
 
     for message in message_defs['messages']:

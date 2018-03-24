@@ -39,6 +39,15 @@
       {{ form.active.label(class="form-check-label") }}
     </div>
   </div>
+  {% for endpoint_form in form.endpoints %}
+  {{ endpoint_form.csrf_token }}
+  <div class="form-row">
+    <div class="form-group col-md-6">
+      {{ endpoint_form.form.endpoint_id.label }}
+      {{ endpoint_form.form.endpoint_id(class="form-control") }}
+    </div>
+  </div>
+  {% endfor %}
   <button type="submit" class="btn btn-primary">Save</button>
 </form>
 
