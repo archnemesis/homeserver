@@ -4,8 +4,8 @@ from .message import Message
 
 class IntercomDirectoryListingMessage(Message):
     MESSAGE_ID = 8
-    MESSAGE_SIZE = 224
-    STRUCT_FORMAT = "<HH22s22s22s22s22s22s22s22s22s22s"
+    MESSAGE_SIZE = 226
+    STRUCT_FORMAT = "<HHH22s22s22s22s22s22s22s22s22s22s"
 
     class IntercomDirectoryListingMessageEntriesParam(object):
         STRUCT_FORMAT = "<6s16s"
@@ -26,7 +26,8 @@ class IntercomDirectoryListingMessage(Message):
             return struct.pack(self.STRUCT_FORMAT, self.hwid, self.display_name)
     
 
-    def __init__(self, sequence=0, total=0, entries=0):
+    def __init__(self, num_entries=0, sequence=0, total=0, entries=0):
+        self.num_entries = num_entries
         self.sequence = sequence
         self.total = total
         self.entries = entries
@@ -35,15 +36,17 @@ class IntercomDirectoryListingMessage(Message):
     def unpack(cls, data):
         data = struct.unpack(cls.STRUCT_FORMAT, data)
         obj = cls()
-        obj.sequence = data[0]
-        obj.total = data[1]
+        obj.num_entries = data[0]
+        obj.sequence = data[1]
+        obj.total = data[2]
         obj.entries = []
         for i in range(10):
-            obj.entries.append(cls.IntercomDirectoryListingMessageEntriesParam.unpack(data[2 + i]))
+            obj.entries.append(cls.IntercomDirectoryListingMessageEntriesParam.unpack(data[3 + i]))
         return obj
 
     def pack(self):
         struct_data = []
+        struct_data.append(self.num_entries)
         struct_data.append(self.sequence)
         struct_data.append(self.total)
         for i in range(10):

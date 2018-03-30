@@ -177,6 +177,9 @@ class HomeServerTCPHandler(threading.Thread, socketserver.BaseRequestHandler):
                                             hwid=hwid
                                         )
                                     )
+                                    i += 1
+
+                                listing.num_entries = i
                                 self.request.sendall(messages.pack_message(listing))
                     elif type(message) is messages.PingMessage:
                         logger.info("Received ping from client")

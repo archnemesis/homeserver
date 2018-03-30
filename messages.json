@@ -190,6 +190,10 @@
       "description": "Listing of intercom contact endpoints.",
       "params": [
         {
+          "name": "num_entries",
+          "type": "uint16_t"
+        },
+        {
           "name": "sequence",
           "type": "uint16_t"
         },
