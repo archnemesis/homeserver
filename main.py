@@ -158,6 +158,26 @@ class HomeServerTCPHandler(threading.Thread, socketserver.BaseRequestHandler):
                                     )
                                 )
                                 self.request.sendall(messages.pack_message(payload))
+
+                                logger.info("Sending directory listing...")
+                                listing = messages.IntercomDirectoryListingMessage()
+                                listing.sequence = 1
+                                listing.total = 1
+
+                                endpoints = self.db.device.find({
+                                    "active": True
+                                })
+
+                                i = 0
+                                for endpoint in endpoints:
+                                    hwid = struct.pack('>cccccc', *[int(a, 16) for a in endpoint['hwid'].split(':')])
+                                    endpoint.entries.append(
+                                        messages.IntercomDirectoryListingMessage.IntercomDirectoryListingMessageEntriesParam(
+                                            display_name=endpoint['name'].encode('ascii'),
+                                            hwid=hwid
+                                        )
+                                    )
+                                self.request.sendall(messages.pack_message(listing))
                     elif type(message) is messages.PingMessage:
                         logger.info("Received ping from client")
                         timeout_counter = 0

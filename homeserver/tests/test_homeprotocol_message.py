@@ -14,7 +14,6 @@ class TestMessage(unittest.TestCase):
         message.ipaddr = 0xAABBCCDD
         message.name = b'test'
         message_bytes = message.pack()
-
         self.assertEqual(message_bytes, b'ABCDEF\xdd\xcc\xbb\xaatest\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
 
 if __name__ == "__main__":

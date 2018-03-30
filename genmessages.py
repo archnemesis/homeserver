@@ -22,13 +22,20 @@ MESSAGE_H_TEMPLATE = """
 #ifndef _MESSAGES_H_
 #define _MESSAGES_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
-#include "FreeRTOS.h"
+%(os_includes)s
 
 #if defined ( __GNUC__ ) && !defined (__CC_ARM) /* GNU Compiler */
   #ifndef __weak
     #define __weak   __attribute__((weak))
   #endif /* __weak */
+  #ifndef __packed
+    #define __packed __attribute__((packed))
+  #endif
 #endif /* __GNUC__ */
 
 %(enums)s
@@ -52,8 +59,12 @@ void message_send(message_t *message);
 
 __weak void message_send(message_t *message)
 {
-    vPortFree(message);
+    %(os_free)s(message);
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 """
@@ -61,6 +72,10 @@ __weak void message_send(message_t *message)
 HEADER_TEMPLATE = """
 #ifndef _%(name_uc)s_MESSAGE_H_
 #define _%(name_uc)s_MESSAGE_H_
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include "message.h"
 #include <stdint.h>
@@ -76,6 +91,8 @@ struct %(name)s_message {
 } __packed;
 
 typedef struct %(name)s_message %(name)s_message_t;
+
+message_t *%(name)s_encode_alloc(%(name)s_message_t *%(name)s);
 
 /**
  * Encode a message to a buffer, making it ready to send.
@@ -97,16 +114,20 @@ void %(name)s_decode(message_t *message, %(name)s_message_t *%(name)s);
  */
 void %(name)s_send(%(name)s_message_t *%(name)s);
 
+#ifdef __cplusplus
+}
+#endif
+
 #endif
 """
 
 SOURCE_TEMPLATE = """
 #include <string.h>
-#include "FreeRTOS.h"
+%(os_includes)s
 #include "%(name)s.h"
 
 message_t *%(name)s_encode_alloc(%(name)s_message_t *%(name)s) {
-    message_t *message = pvPortMalloc(MESSAGE_HEADER_SIZE + MESSAGE_%(name_uc)s_LENGTH);
+    message_t *message = %(os_malloc)s(MESSAGE_HEADER_SIZE + MESSAGE_%(name_uc)s_LENGTH);
     %(name)s_encode(message, %(name)s);
     return message;
 }
@@ -300,7 +321,7 @@ def process_struct_params(params, padding=2):
     return struct_members
 
 
-def process_message(code_format, messagedef, output_directory):
+def process_message(code_format, output_os, messagedef, output_directory):
     total_size = get_param_total_size(messagedef['params'])
     struct_format = get_message_struct_format(messagedef['params'])
 
@@ -390,6 +411,16 @@ def process_message(code_format, messagedef, output_directory):
             fp.write(MESSAGE_PY)
 
     elif code_format == "c":
+        if output_os == "FreeRTOS":
+            os_includes = ["#include \"FreeRTOS.h\""]
+            os_malloc = "pvPortMalloc"
+            os_free = "vPortFree"
+        else:
+            os_includes = ["#include <stdlib.h>"]
+            os_malloc = "malloc"
+            os_free = "free"
+        os_includes = "\n".join(os_includes)
+
         header_output = []
         source_output = []
         struct_members = process_struct_params(messagedef['params'], padding=2)
@@ -401,6 +432,9 @@ def process_message(code_format, messagedef, output_directory):
             "id": messagedef['id'],
             "size": total_size,
             "description": messagedef['description'],
+            "os_includes": os_includes,
+            "os_malloc": os_malloc,
+            "os_free": os_free
             }
 
         source_output = SOURCE_TEMPLATE % {
@@ -410,6 +444,9 @@ def process_message(code_format, messagedef, output_directory):
             "id": messagedef['id'],
             "size": total_size,
             "description": messagedef['description'],
+            "os_includes": os_includes,
+            "os_malloc": os_malloc,
+            "os_free": os_free
         }
 
         print("Generating %s..." % os.path.join(output_directory, "%s.h" % cc2us(messagedef['name'])))
@@ -491,10 +528,20 @@ def process_format_python(message_defs, output_directory):
             header_struct_format=header_format))
 
     for message in message_defs['messages']:
-        process_message("python", message, output_directory)
+        process_message("python", None, message, output_directory)
 
 
-def process_format_c(message_defs, output_directory):
+def process_format_c(output_os, message_defs, output_directory):
+    if output_os == "FreeRTOS":
+        os_includes = ["#include \"FreeRTOS.h\""]
+        os_malloc = "pvPortMalloc"
+        os_free = "vPortFree"
+    else:
+        os_includes = ["#include <stdlib.h>"]
+        os_malloc = "malloc"
+        os_free = "free"
+    os_includes = "\n".join(os_includes)
+
     message_names = [message['name'] for message in message_defs['messages']]
 
     print("Generating %s..." % os.path.join(output_directory, "message.h"))
@@ -528,11 +575,14 @@ def process_format_c(message_defs, output_directory):
             "max_size": get_max_message_size(message_defs['messages']),
             "enums": "\n".join(enums),
             "message_params": params,
-            "message_header_size": 3 + params_size
+            "message_header_size": 3 + params_size,
+            "os_includes": os_includes,
+            "os_malloc": os_malloc,
+            "os_free": os_free
         })
 
     for message in message_defs['messages']:
-        process_message("c", message, output_directory)
+        process_message("c", output_os, message, output_directory)
 
 
 def main():
@@ -540,6 +590,7 @@ def main():
     parser.add_argument("filename", help="JSON file containing message definitions")
     parser.add_argument("outdir", help="Output directory")
     parser.add_argument("--format", default="python", help="Output code format (python or c)")
+    parser.add_argument("--os", default="FreeRTOS", help="OS-specific items")
     args = parser.parse_args()
 
     filename = args.filename
@@ -556,7 +607,7 @@ def main():
         message_defs = json.load(defp)
 
         if args.format == "c":
-            process_format_c(message_defs, output_directory)
+            process_format_c(args.os, message_defs, output_directory)
         elif args.format == "python":
             process_format_python(message_defs, output_directory)
 

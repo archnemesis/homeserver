@@ -7,6 +7,7 @@ from .intercom_channel_accept import IntercomChannelAcceptMessage
 from .configuration_payload import ConfigurationPayloadMessage
 from .ping import PingMessage
 from .intercom_channel_create import IntercomChannelCreateMessage
+from .intercom_directory_listing import IntercomDirectoryListingMessage
 from .message import CommandCode
 from .message import ErrorCode
 from .message import DeviceType

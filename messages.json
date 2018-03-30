@@ -183,6 +183,35 @@
           "type": "char[6]"
         }
       ]
+    },
+    {
+      "id": 8,
+      "name": "IntercomDirectoryListing",
+      "description": "Listing of intercom contact endpoints.",
+      "params": [
+        {
+          "name": "sequence",
+          "type": "uint16_t"
+        },
+        {
+          "name": "total",
+          "type": "uint16_t"
+        },
+        {
+          "name": "entries",
+          "type": "struct[10]",
+          "params": [
+            {
+              "name": "hwid",
+              "type": "char[6]"
+            },
+            {
+              "name": "display_name",
+              "type": "char[16]"
+            }
+          ]
+        }
+      ]
     }
   ]
 }
