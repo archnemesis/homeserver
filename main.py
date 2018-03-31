@@ -10,6 +10,7 @@ import time
 import cmd
 import pymongo
 import ssl
+import struct
 from homeserver.homeprotocol import messages
 from homeserver.homeprotocol.parser import Parser
 
@@ -21,6 +22,16 @@ ch.setLevel(logging.DEBUG)
 formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 ch.setFormatter(formatter);
 logger.addHandler(ch)
+
+
+def format_hwid(hwid):
+    hwid = "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}".format(*hwid[:])
+    return hwid
+
+
+def pack_hwid(hwid):
+    hwid = struct.pack('<BBBBBB', *[int(a, 16) for a in hwid.split(':')])
+    return hwid
 
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
@@ -163,6 +174,7 @@ class HomeServerTCPHandler(threading.Thread, socketserver.BaseRequestHandler):
                                 listing = messages.IntercomDirectoryListingMessage()
                                 listing.sequence = 1
                                 listing.total = 1
+                                listing.entries = []
 
                                 endpoints = self.db.device.find({
                                     "active": True
@@ -170,8 +182,9 @@ class HomeServerTCPHandler(threading.Thread, socketserver.BaseRequestHandler):
 
                                 i = 0
                                 for endpoint in endpoints:
-                                    hwid = struct.pack('>cccccc', *[int(a, 16) for a in endpoint['hwid'].split(':')])
-                                    endpoint.entries.append(
+                                    hwid = struct.pack('<BBBBBB', *[int(a, 16) for a in endpoint['hwid'].split(':')])
+                                    logger.debug("Sending hwid %r" % hwid)
+                                    listing.entries.append(
                                         messages.IntercomDirectoryListingMessage.IntercomDirectoryListingMessageEntriesParam(
                                             display_name=endpoint['name'].encode('ascii'),
                                             hwid=hwid
@@ -184,6 +197,30 @@ class HomeServerTCPHandler(threading.Thread, socketserver.BaseRequestHandler):
                     elif type(message) is messages.PingMessage:
                         logger.info("Received ping from client")
                         timeout_counter = 0
+                    elif type(message) is messages.IntercomChannelRequestMessage:
+                        hwid_callee = format_hwid(message.hwid_callee)
+                        hwid_caller = format_hwid(header.hwid)
+                        logger.info("Received intercom channel request from %s to %s" % (hwid_caller, hwid_callee))
+                        timeout_counter = 0
+
+                        caller = self.db.devices.find_one({
+                            "hwid": hwid_caller
+                        })
+
+                        # set up a session
+                        self.db.sessions.insert_one({
+                            "caller": hwid_caller,
+                            "callee": hwid_callee,
+                            "initiated": datetime.datetime.utcnow(),
+                            "status": "REQUEST_SENT"
+                        })
+
+                        # ask the endpoint to accept the request
+                        request = messages.IntercomIncomingChannelRequestMessage()
+                        request.caller_hwid = header.hwid
+                        request.display_name = caller['name'].encode('ascii')
+                        request.description = caller['description'].encode('ascii')
+                        self.request.sendall(messages.pack_message(request))
 
         logger.info("End connection")
 

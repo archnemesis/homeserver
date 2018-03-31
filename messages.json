@@ -216,6 +216,25 @@
           ]
         }
       ]
+    },
+    {
+      "id": 9,
+      "name": "IntercomIncomingChannelRequest",
+      "description": "Ask a client to accept an intercom channel request.",
+      "params": [
+        {
+          "name": "caller_hwid",
+          "type": "char[6]"
+        },
+        {
+          "name": "display_name",
+          "type": "char[16]"
+        },
+        {
+          "name": "description",
+          "type": "char[16]"
+        }
+      ]
     }
   ]
 }
