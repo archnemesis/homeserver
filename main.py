@@ -45,10 +45,15 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
             thread.send_message(message)
 
     def process_request(self, request, client_address):
-        t = HomeServerTCPHandler(self.db, request, client_address)
+        t = HomeServerTCPHandler(self, self.db, request, client_address)
         t.daemon = self.daemon_threads
         t.start()
         self._threads.append(t)
+
+    def send_to_hwid(self, hwid, message):
+        for thread in self._threads:
+            if thread.hwid == hwid:
+                thread.send_message(message)
 
     def server_close(self):
         for t in self._threads:
@@ -75,13 +80,15 @@ class ThreadedSSLTCPServer(ThreadedTCPServer):
 
 
 class HomeServerTCPHandler(threading.Thread, socketserver.BaseRequestHandler):
-    def __init__(self, db, request, client_address, *args, **kwargs):
+    def __init__(self, server, db, request, client_address, *args, **kwargs):
+        self.server = server
         self.db = db
         self.parser = Parser()
         self.request = request
         self.client_address = client_address
         self.message_queue = queue.Queue()
         self.running = True
+        self.hwid = None
         super().__init__(*args, **kwargs)
 
     def run(self):
@@ -121,6 +128,9 @@ class HomeServerTCPHandler(threading.Thread, socketserver.BaseRequestHandler):
                     logger.info("Connection closed")
                     return
                 for header, message in self.parser.process_bytes(data):
+                    if self.hwid is None:
+                        self.hwid = header.hwid
+
                     if type(message) is messages.CommandMessage:
                         if message.command_id == messages.CommandCode.RequestConfigurationCommand:
                             hwid = "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}".format(*header.hwid[:])
@@ -183,7 +193,6 @@ class HomeServerTCPHandler(threading.Thread, socketserver.BaseRequestHandler):
                                 i = 0
                                 for endpoint in endpoints:
                                     hwid = struct.pack('<BBBBBB', *[int(a, 16) for a in endpoint['hwid'].split(':')])
-                                    logger.debug("Sending hwid %r" % hwid)
                                     listing.entries.append(
                                         messages.IntercomDirectoryListingMessage.IntercomDirectoryListingMessageEntriesParam(
                                             display_name=endpoint['name'].encode('ascii'),
@@ -203,7 +212,7 @@ class HomeServerTCPHandler(threading.Thread, socketserver.BaseRequestHandler):
                         logger.info("Received intercom channel request from %s to %s" % (hwid_caller, hwid_callee))
                         timeout_counter = 0
 
-                        caller = self.db.devices.find_one({
+                        caller = self.db.device.find_one({
                             "hwid": hwid_caller
                         })
 
@@ -218,9 +227,10 @@ class HomeServerTCPHandler(threading.Thread, socketserver.BaseRequestHandler):
                         # ask the endpoint to accept the request
                         request = messages.IntercomIncomingChannelRequestMessage()
                         request.caller_hwid = header.hwid
+                        request.addr = int(ipaddress.IPv4Address(self.client_address))
                         request.display_name = caller['name'].encode('ascii')
                         request.description = caller['description'].encode('ascii')
-                        self.request.sendall(messages.pack_message(request))
+                        self.server.send_to_hwid(message.hwid_callee, request)
 
         logger.info("End connection")
 

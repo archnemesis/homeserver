@@ -227,6 +227,10 @@
           "type": "char[6]"
         },
         {
+          "name": "addr",
+          "type": "uint32_t"
+        },
+        {
           "name": "display_name",
           "type": "char[16]"
         },
