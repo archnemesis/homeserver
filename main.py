@@ -224,13 +224,16 @@ class HomeServerTCPHandler(threading.Thread, socketserver.BaseRequestHandler):
                             "status": "REQUEST_SENT"
                         })
 
+                        logger.info("Sending request to %s to open intercom channel..." % hwid_callee)
                         # ask the endpoint to accept the request
                         request = messages.IntercomIncomingChannelRequestMessage()
                         request.caller_hwid = header.hwid
-                        request.addr = int(ipaddress.IPv4Address(self.client_address))
+                        request.addr = int(ipaddress.IPv4Address(self.client_address[0]))
                         request.display_name = caller['name'].encode('ascii')
                         request.description = caller['description'].encode('ascii')
                         self.server.send_to_hwid(message.hwid_callee, request)
+                    elif type(message) is messages.IntercomChannelAcceptMessage:
+                        logger.info("Received intercom channel accept from %s" % self.client_address[0])
 
         logger.info("End connection")
 
